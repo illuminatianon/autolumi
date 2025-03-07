@@ -58,28 +58,62 @@
             </div>
 
             <v-list v-if="!configStore.loading" lines="two">
-              <v-list-item
+              <v-list-group
                 v-for="config in configs"
                 :key="config.name"
-                :title="config.name"
-                :subtitle="`${config.width}x${config.height}, ${config.steps} steps`"
+                :value="config.name"
               >
-                <template v-slot:append>
-                  <v-btn
-                    icon="mdi-pencil"
-                    variant="text"
-                    size="small"
-                    @click="showConfigDialog(config)"
-                  />
-                  <v-btn
-                    icon="mdi-delete"
-                    variant="text"
-                    color="error"
-                    size="small"
-                    @click="deleteConfig(config)"
-                  />
+                <template v-slot:activator="{ props }">
+                  <v-list-item
+                    v-bind="props"
+                    :title="config.name"
+                    :subtitle="getConfigSummary(config)"
+                  >
+                    <template v-slot:prepend>
+                      <v-btn
+                        icon="mdi-play"
+                        variant="text"
+                        color="success"
+                        size="small"
+                        class="mr-2"
+                        @click.stop="queueGeneration(config)"
+                      />
+                    </template>
+
+                    <template v-slot:append>
+                      <v-btn
+                        icon="mdi-pencil"
+                        variant="text"
+                        size="small"
+                        @click.stop="showConfigDialog(config)"
+                      />
+                      <v-btn
+                        icon="mdi-delete"
+                        variant="text"
+                        color="error"
+                        size="small"
+                        @click.stop="deleteConfig(config)"
+                      />
+                    </template>
+                  </v-list-item>
                 </template>
-              </v-list-item>
+
+                <v-list-item>
+                  <v-list-item-subtitle>
+                    <div class="text-body-2 mt-2">
+                      <div><strong>Initial Size:</strong> {{ config.width }}x{{ config.height }}</div>
+                      <div><strong>Steps:</strong> {{ config.steps }}</div>
+                      <div><strong>CFG Scale:</strong> {{ config.cfg_scale }}</div>
+                      <div><strong>Sampler:</strong> {{ config.sampler_name }}</div>
+                      <div><strong>Batch Size:</strong> {{ config.batch_size }}</div>
+                      <div class="mt-2"><strong>Prompt:</strong></div>
+                      <div class="text-wrapped">{{ config.prompt }}</div>
+                      <div v-if="config.negative_prompt" class="mt-2"><strong>Negative Prompt:</strong></div>
+                      <div v-if="config.negative_prompt" class="text-wrapped">{{ config.negative_prompt }}</div>
+                    </div>
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </v-list-group>
 
               <v-list-item v-if="configs.length === 0">
                 <v-list-item-title class="text-center text-medium-emphasis">
@@ -210,6 +244,21 @@ const checkAuto1111Status = async () => {
       message: 'Auto1111 is not connected'
     };
   }
+};
+
+const getConfigSummary = (config) => {
+  const parts = [
+    `Model: ${config.model}`,
+    config.hr_resize_x && config.hr_resize_y
+      ? `Target: ${config.hr_resize_x}x${config.hr_resize_y}`
+      : 'No upscale'
+  ];
+  return parts.join(' • ');
+};
+
+const queueGeneration = (config) => {
+  // TODO: Implement generation queueing
+  console.log('Queueing generation for config:', config.name);
 };
 
 onMounted(async () => {
