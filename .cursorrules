@@ -1,0 +1,52 @@
+CursorRules: Generation Queue for Automatic1111 Workflow
+=========================================================
+
+Overview:
+  • Build a job queue system to manage text-to-image (txt2img) generation and upscale jobs.
+  • Support batches of txt2img generation; when a user selects an image for upscale, that task is prioritized.
+
+Tech Stack:
+  • Frontend: Vue 3 using the Composition API.
+  • Backend: Node.js (using a popular framework such as Express).
+
+Backend responsible for
+    - calling the Automatic1111 API
+    - managing the job queue
+    - sending results to the frontend
+    - file saving
+
+Front end should allow for multiple job configurations to be defined and selected from a list. 
+Figure out the parameters needed and create a configuration form, that can be used to make new configs and edit existing ones. 
+we should be able to delete them too.
+
+Automatic1111 API Integration:
+  - Endpoints used:
+      - /sdapi/v1/txt2img: Generates images from text prompts.
+      - /sdapi/v1/img2img: Processes images—including custom scripts like “SD upscale.”
+      - Extras endpoints (e.g., /sdapi/v1/extra-single-image) may also be used.
+  - API returns images as base64-encoded strings; you may set flags (e.g., "save_images": true) to also save files.
+ 
+Queue Management & Workflow:
+  - The middleman service maintains two queues:
+      - A general generation queue (for the 8 txt2img batches).
+      - A priority queue for upscale jobs (triggered when an image is selected).
+  - The scheduler continuously polls the queues:
+      - If a priority upscale job exists, it dispatches that immediately (using img2img with upscale parameters).
+      - Otherwise, it processes the next txt2img batch.
+  - Upscale jobs include additional parameters such as:
+      - "script_name": e.g., "SD upscale"
+      - "script_args": an array (e.g., [null, 64, "R-ESRGAN 4x+", 2.5]) to specify tile overlap, upscaler, and scale factor.
+
+Additional Considerations:
+  - The backend service decodes the base64 images from the API and can optionally save them or send them to the frontend.
+  - User notifications (e.g., via WebSockets or HTTP polling) can inform clients when a priority job completes.
+  - The design ensures that upscale jobs “cut in line” and are processed before waiting generation batches.
+
+Summary:
+  Build a Node.js/Express middleman that:
+    1. Enqueues txt2img jobs with defined parameters.
+    2. Monitors job status and displays results in a Vue 3 frontend.
+    3. Show result images in a separate pane, allow saving them at request
+    4. UI to select an image for upscale
+    5. On image selection, creates a priority upscale task that is dispatched immediately.
+    6. Uses Automatic1111’s REST API endpoints to handle both generation and upscale processes.
