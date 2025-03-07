@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { QueueManager } from './lib/QueueManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
+import { ConfigManager } from './lib/ConfigManager.js';
 import { configRouter } from './routes/config.js';
 import { generationRouter } from './routes/generation.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -15,6 +19,10 @@ const auto1111Client = new Auto1111Client({
 });
 
 const queueManager = new QueueManager(auto1111Client);
+const configManager = new ConfigManager(path.join(__dirname, '..', 'data'));
+
+// Initialize config manager
+await configManager.initialize();
 
 // Middleware
 app.use(cors());
@@ -26,7 +34,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use((req, res, next) => {
   req.services = {
     auto1111: auto1111Client,
-    queueManager
+    queueManager,
+    configManager
   };
   next();
 });

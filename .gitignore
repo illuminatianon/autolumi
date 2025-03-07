@@ -30,3 +30,7 @@ pnpm-debug.log*
 !.yarn/sdks
 !.yarn/versions
 .yarn/install-state.gz
+
+# Data directory
+/data/*
+!/data/.gitkeep

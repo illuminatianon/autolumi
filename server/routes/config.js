@@ -81,3 +81,50 @@ configRouter.post('/initialize', async (req, res) => {
     });
   }
 });
+
+// Generation Configs CRUD endpoints
+configRouter.get('/generation', async (req, res) => {
+  try {
+    const configs = await req.services.configManager.getAllConfigs();
+    res.json(configs);
+  } catch (error) {
+    console.error('Error getting configs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+configRouter.post('/generation', async (req, res) => {
+  try {
+    const config = await req.services.configManager.addConfig(req.body);
+    res.json(config);
+  } catch (error) {
+    console.error('Error adding config:', error);
+    res.status(error.message.includes('already exists') ? 409 : 500)
+      .json({ error: error.message });
+  }
+});
+
+configRouter.put('/generation/:name', async (req, res) => {
+  try {
+    const config = await req.services.configManager.updateConfig({
+      ...req.body,
+      name: req.params.name
+    });
+    res.json(config);
+  } catch (error) {
+    console.error('Error updating config:', error);
+    res.status(error.message.includes('not found') ? 404 : 500)
+      .json({ error: error.message });
+  }
+});
+
+configRouter.delete('/generation/:name', async (req, res) => {
+  try {
+    await req.services.configManager.deleteConfig(req.params.name);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting config:', error);
+    res.status(error.message.includes('not found') ? 404 : 500)
+      .json({ error: error.message });
+  }
+});
