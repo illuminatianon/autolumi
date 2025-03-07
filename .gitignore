@@ -21,5 +21,12 @@ pnpm-debug.log*
 *.sln
 *.sw?
 *.code-workspace
+
+# Yarn
 .yarn/*
-install-state.gz
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.yarn/install-state.gz
