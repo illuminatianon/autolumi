@@ -57,7 +57,7 @@
               </v-btn>
             </div>
 
-            <v-list lines="two">
+            <v-list v-if="!configStore.loading" lines="two">
               <v-list-item
                 v-for="config in configs"
                 :key="config.name"
@@ -80,7 +80,27 @@
                   />
                 </template>
               </v-list-item>
+
+              <v-list-item v-if="configs.length === 0">
+                <v-list-item-title class="text-center text-medium-emphasis">
+                  No configurations yet. Click "New Config" to create one.
+                </v-list-item-title>
+              </v-list-item>
             </v-list>
+
+            <div v-else class="d-flex justify-center align-center" style="min-height: 200px">
+              <v-progress-circular indeterminate />
+            </div>
+
+            <v-alert
+              v-if="configStore.error"
+              type="error"
+              closable
+              class="mt-4"
+              @click:close="configStore.clearError()"
+            >
+              {{ configStore.error }}
+            </v-alert>
           </v-col>
 
           <!-- Right side - Results -->
@@ -146,18 +166,26 @@ const showConfigDialog = (config = null) => {
   };
 };
 
-const handleConfigSave = (config) => {
-  if (configDialog.value.config) {
-    configStore.updateConfig(config);
-  } else {
-    configStore.addConfig(config);
+const handleConfigSave = async (config) => {
+  try {
+    if (configDialog.value.config) {
+      await configStore.updateConfig(config);
+    } else {
+      await configStore.addConfig(config);
+    }
+    configDialog.value.show = false;
+  } catch (error) {
+    // Error is already handled by the store
   }
-  configDialog.value.show = false;
 };
 
-const deleteConfig = (config) => {
+const deleteConfig = async (config) => {
   if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
-    configStore.deleteConfig(config);
+    try {
+      await configStore.deleteConfig(config);
+    } catch (error) {
+      // Error is already handled by the store
+    }
   }
 };
 
@@ -184,12 +212,15 @@ const checkAuto1111Status = async () => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   // Initial check
   checkAuto1111Status();
 
   // Check every 30 seconds
   setInterval(checkAuto1111Status, 30000);
+
+  // Load configs
+  await configStore.fetchConfigs();
 });
 </script>
 
