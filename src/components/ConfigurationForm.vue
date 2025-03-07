@@ -60,6 +60,51 @@
               :rules="[v => v >= 1 && v <= 8 || 'Batch size must be between 1 and 8']" />
           </v-col>
         </v-row>
+
+        <!-- Hires.fix Settings -->
+        <v-divider class="my-4" />
+        <h3 class="text-h6 mb-2">Hiresfix Settings</h3>
+
+        <v-row>
+          <v-col cols="6">
+            <v-text-field
+              v-model.number="formData.hr_resize_x"
+              label="Target Width"
+              type="number"
+              min="64"
+              max="2048"
+              step="64"
+              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Width must be between 64 and 2048 and divisible by 64']"
+            />
+          </v-col>
+          <v-col cols="6">
+            <v-text-field
+              v-model.number="formData.hr_resize_y"
+              label="Target Height"
+              type="number"
+              min="64"
+              max="2048"
+              step="64"
+              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Height must be between 64 and 2048 and divisible by 64']"
+            />
+          </v-col>
+        </v-row>
+
+        <v-row>
+          <v-col cols="12">
+            <v-text-field
+              v-model.number="formData.denoising_strength"
+              label="Denoising Strength"
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              :rules="[v => v >= 0 && v <= 1 || 'Denoising strength must be between 0 and 1']"
+              hint="Lower values preserve more details, higher values allow more changes"
+              persistent-hint
+            />
+          </v-col>
+        </v-row>
       </v-card-text>
 
       <v-card-actions>
@@ -96,13 +141,31 @@ const loading = ref(false);
 const isEditing = computed(() => !!props.config);
 const samplers = ref([]);
 const models = ref([]);
+const upscalers = ref([
+  'Latent',
+  'Latent (antialiased)',
+  'Latent (bicubic)',
+  'Latent (bicubic antialiased)',
+  'Latent (nearest)',
+  'Latent (nearest-exact)',
+  'None',
+  'Lanczos',
+  'Nearest',
+  'ESRGAN_4x',
+  'R-ESRGAN 4x+',
+  'R-ESRGAN 4x+ Anime6B'
+]);
 
 const defaultForm = {
   name: '',
   model: '',
   ...DEFAULT_TXT2IMG_PARAMS,
   prompt: '',
-  negative_prompt: ''
+  negative_prompt: '',
+  // Hires.fix defaults - enable_hr will be set to true when sending to API
+  hr_resize_x: 0,
+  hr_resize_y: 0,
+  denoising_strength: 0.7
 };
 
 const formData = ref({ ...defaultForm });
