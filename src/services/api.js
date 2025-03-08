@@ -33,6 +33,11 @@ async function getQueueStatus() {
   return response.data;
 }
 
+async function cancelJob(jobId) {
+  const response = await apiService.delete(`/generation/job/${jobId}`);
+  return response.data;
+}
+
 // Config/Status
 async function getAvailableModels() {
   const response = await apiService.get('/config/models');
@@ -81,5 +86,6 @@ export {
   getServerStatus,
   getDefaultConfig,
   getUpscalers,
-  getLatentUpscaleModes
+  getLatentUpscaleModes,
+  cancelJob
 };

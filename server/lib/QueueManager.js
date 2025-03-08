@@ -225,6 +225,41 @@ export class QueueManager {
       throw error;
     }
   }
+
+  async removeJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
+    }
+
+    // If this is the currently processing job, we can't cancel it
+    if (this.currentJob === jobId) {
+      throw new Error('Cannot cancel currently processing job');
+    }
+
+    // Remove from jobs map
+    this.jobs.delete(jobId);
+
+    // Remove from queue
+    const queueIndex = this.queue.indexOf(jobId);
+    if (queueIndex !== -1) {
+      this.queue.splice(queueIndex, 1);
+    }
+
+    // Remove from generation queue if present
+    const genQueueIndex = this.generationQueue.indexOf(jobId);
+    if (genQueueIndex !== -1) {
+      this.generationQueue.splice(genQueueIndex, 1);
+    }
+
+    // Remove from priority queue if present
+    const priorityQueueIndex = this.priorityQueue.indexOf(jobId);
+    if (priorityQueueIndex !== -1) {
+      this.priorityQueue.splice(priorityQueueIndex, 1);
+    }
+
+    console.log(`Removed job ${jobId} from queue`);
+  }
 }
 
 async function getImageMetadata(imagePath) {

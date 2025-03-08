@@ -584,8 +584,13 @@ const getJobStatus = (job) => {
 };
 
 const cancelJob = async (job) => {
-  // TODO: Implement job cancellation
-  console.log('Cancel job:', job.id);
+  try {
+    await generationService.cancelJob(job.id);
+    // The next queue status poll will update the UI
+  } catch (error) {
+    console.error('Error canceling job:', error);
+    // TODO: Show error notification
+  }
 };
 
 const imageDialog = ref({

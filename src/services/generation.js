@@ -1,4 +1,4 @@
-import { queueGeneration, queueUpscale, getJobStatus, getQueueStatus } from './api';
+import { queueGeneration, queueUpscale, getJobStatus, getQueueStatus, cancelJob } from './api';
 
 class GenerationService {
   async queueGeneration(config) {
@@ -34,6 +34,15 @@ class GenerationService {
 
   async queueUpscale(imagePath, config) {
     return await queueUpscale(imagePath, config);
+  }
+
+  async cancelJob(jobId) {
+    try {
+      await cancelJob(jobId);
+    } catch (error) {
+      console.error('Error canceling job:', error);
+      throw error;
+    }
   }
 }
 

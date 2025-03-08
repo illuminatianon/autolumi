@@ -90,3 +90,15 @@ generationRouter.get('/queue', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Cancel a job
+generationRouter.delete('/job/:jobId', async (req, res) => {
+  try {
+    await req.services.queueManager.removeJob(req.params.jobId);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error canceling job:', error);
+    res.status(error.message.includes('not found') ? 404 : 500)
+      .json({ error: error.message });
+  }
+});
