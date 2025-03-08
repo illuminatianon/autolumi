@@ -34,8 +34,8 @@ Queue Management & Workflow:
       - If a priority upscale job exists, it dispatches that immediately (using img2img with upscale parameters).
       - Otherwise, it processes the next txt2img batch.
   - Upscale jobs include additional parameters such as:
-      - "script_name": e.g., "SD upscale"
-      - "script_args": an array (e.g., [null, 64, "R-ESRGAN 4x+", 2.5]) to specify tile overlap, upscaler, and scale factor.
+      - "script_name": "SD upscale"
+      - "script_args": an array 
 
 Additional Considerations:
   - The backend service decodes the base64 images from the API and can optionally save them or send them to the frontend.
