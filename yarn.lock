@@ -1134,6 +1134,8 @@ __metadata:
     express: "npm:^4.18.2"
     morgan: "npm:^1.10.0"
     nodemon: "npm:^3.0.3"
+    pngjs: "npm:^7.0.0"
+    uuid: "npm:^11.1.0"
   languageName: unknown
   linkType: soft
 
