@@ -21,20 +21,27 @@ export class ImageManager {
     return jobDir;
   }
 
-  async saveImage(jobName, imageData, index) {
+  async getNextFileNumber(jobDir) {
     try {
-      console.log('Saving image:', {
-        jobName,
-        imageDataType: typeof imageData,
-        imageDataLength: imageData?.length
-      });
+      const files = await fs.readdir(jobDir);
+      const numbers = files
+        .map(f => parseInt(path.parse(f).name))
+        .filter(n => !isNaN(n));
+      return numbers.length > 0 ? Math.max(...numbers) + 1 : 0;
+    } catch (error) {
+      return 0;
+    }
+  }
 
+  async saveImage(jobName, imageData) {
+    try {
       if (!imageData) {
         throw new Error('No image data provided');
       }
 
       const jobDir = await this.ensureJobDirectory(jobName);
-      const fileName = `${String(index).padStart(5, '0')}.png`;
+      const nextNumber = await this.getNextFileNumber(jobDir);
+      const fileName = `${String(nextNumber).padStart(5, '0')}.png`;
       const filePath = path.join(jobDir, fileName);
 
       // Auto1111 returns raw base64 strings, so we need to convert them to buffers
@@ -50,20 +57,14 @@ export class ImageManager {
   }
 
   async saveImages(jobName, images) {
-    console.log('Saving images:', {
-      jobName,
-      imagesLength: images?.length,
-      firstImageType: images?.[0] ? typeof images[0] : 'undefined'
-    });
-
     if (!Array.isArray(images) || images.length === 0) {
       console.warn('No images to save');
       return [];
     }
 
     const savedPaths = [];
-    for (let i = 0; i < images.length; i++) {
-      const relativePath = await this.saveImage(jobName, images[i], i);
+    for (const image of images) {
+      const relativePath = await this.saveImage(jobName, image);
       savedPaths.push(relativePath);
     }
     return savedPaths;

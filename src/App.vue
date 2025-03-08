@@ -231,7 +231,7 @@
             <div v-if="!hasGeneratedImages" class="text-center pa-8">
               <v-alert type="info" text="No generated images yet. Select a configuration and click generate to start."/>
             </div>
-            <v-row v-else>
+            <v-row v-else dense>
               <v-col
                 v-for="image in allImages"
                 :key="image.id"
@@ -239,57 +239,52 @@
                 sm="4"
                 md="3"
                 xl="2"
-                class="d-flex"
+                class="pa-1"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
                     v-bind="props"
                     :elevation="isHovering ? 8 : 2"
-                    class="transition-swing flex-grow-1 d-flex flex-column"
-                    height="250"
+                    class="transition-swing"
                   >
-                    <div class="flex-grow-1 position-relative">
-                      <v-img
-                        :src="`http://localhost:3001/output/${image.path}`"
-                        class="bg-grey-lighten-2"
-                        height="100%"
-                        contain
-                        @click="showImageDetails(image)"
-                      >
-                        <template v-slot:placeholder>
-                          <div class="d-flex align-center justify-center fill-height">
-                            <v-progress-circular
-                              indeterminate
-                              color="primary"
-                            />
-                          </div>
-                        </template>
-
-                        <div
-                          v-if="isHovering"
-                          class="d-flex flex-column fill-height position-absolute"
-                          style="background: rgba(0, 0, 0, 0.7); inset: 0;"
-                        >
-                          <v-card-title class="text-white text-subtitle-2 pt-2">{{ image.jobName }}</v-card-title>
-                          <v-card-subtitle class="text-white text-caption pb-0">
-                            {{ new Date(image.timestamp).toLocaleString() }}
-                          </v-card-subtitle>
-                          <v-spacer />
-                          <v-card-actions>
-                            <v-spacer />
-                            <v-btn
-                              variant="tonal"
-                              color="primary"
-                              size="small"
-                              prepend-icon="mdi-arrow-up-bold"
-                              @click.stop="upscaleImage(image)"
-                            >
-                              Upscale
-                            </v-btn>
-                          </v-card-actions>
+                    <v-img
+                      :src="`http://localhost:3001/output/${image.path}`"
+                      :aspect-ratio="image.config.width / image.config.height"
+                      @click="showImageDetails(image)"
+                    >
+                      <template v-slot:placeholder>
+                        <div class="d-flex align-center justify-center fill-height">
+                          <v-progress-circular
+                            indeterminate
+                            color="primary"
+                          />
                         </div>
-                      </v-img>
-                    </div>
+                      </template>
+
+                      <div
+                        v-if="isHovering"
+                        class="d-flex flex-column fill-height position-absolute"
+                        style="background: rgba(0, 0, 0, 0.7); inset: 0;"
+                      >
+                        <v-card-title class="text-white text-subtitle-2 pt-2">{{ image.jobName }}</v-card-title>
+                        <v-card-subtitle class="text-white text-caption pb-0">
+                          {{ new Date(image.timestamp).toLocaleString() }}
+                        </v-card-subtitle>
+                        <v-spacer />
+                        <v-card-actions>
+                          <v-spacer />
+                          <v-btn
+                            variant="tonal"
+                            color="primary"
+                            size="small"
+                            prepend-icon="mdi-arrow-up-bold"
+                            @click.stop="upscaleImage(image)"
+                          >
+                            Upscale
+                          </v-btn>
+                        </v-card-actions>
+                      </div>
+                    </v-img>
                   </v-card>
                 </v-hover>
               </v-col>
