@@ -5,10 +5,15 @@ export const configRouter = express.Router();
 // Health check endpoint
 configRouter.get('/health', async (req, res) => {
   try {
-    await req.services.auto1111.checkHealth();
+    // Use the auto1111 client to check connection
+    await req.services.auto1111.initialize();
     res.json({ status: 'ok' });
   } catch (error) {
-    res.status(503).json({ status: 'error', message: error.message });
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'error',
+      message: error.message
+    });
   }
 });
 
