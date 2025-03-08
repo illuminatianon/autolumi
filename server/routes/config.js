@@ -5,33 +5,19 @@ export const configRouter = express.Router();
 // Health check endpoint
 configRouter.get('/health', async (req, res) => {
   try {
-    const auto1111Health = await req.services.auto1111.client.get('/');
-    res.json({
-      status: 'ok',
-      auto1111: {
-        status: 'connected',
-        url: req.services.auto1111.client.defaults.baseURL
-      }
-    });
+    await req.services.auto1111.checkHealth();
+    res.json({ status: 'ok' });
   } catch (error) {
-    res.json({
-      status: 'warning',
-      auto1111: {
-        status: 'disconnected',
-        url: req.services.auto1111.client.defaults.baseURL,
-        error: error.message
-      }
-    });
+    res.status(503).json({ status: 'error', message: error.message });
   }
 });
 
 // Get available samplers
 configRouter.get('/samplers', async (req, res) => {
   try {
-    const samplers = req.services.auto1111.getAvailableSamplers();
+    const samplers = await req.services.auto1111.getAvailableSamplers();
     res.json(samplers);
   } catch (error) {
-    console.error('Error getting samplers:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -39,10 +25,19 @@ configRouter.get('/samplers', async (req, res) => {
 // Get available models
 configRouter.get('/models', async (req, res) => {
   try {
-    const models = req.services.auto1111.getAvailableModels();
+    const models = await req.services.auto1111.getAvailableModels();
     res.json(models);
   } catch (error) {
-    console.error('Error getting models:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available upscalers
+configRouter.get('/upscalers', async (req, res) => {
+  try {
+    const upscalers = await req.services.auto1111.getAvailableUpscalers();
+    res.json(upscalers);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

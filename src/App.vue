@@ -406,7 +406,7 @@ import { ref, computed, onMounted, watchEffect } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
-import auto1111Service from '@/services/auto1111/service';
+import apiService from '@/services/api';
 import generationService, { upscaleImage } from '@/services/generation';
 
 const configStore = useConfigStore();
@@ -487,17 +487,17 @@ const handleError = (error) => {
 // Check Auto1111 status periodically
 const checkAuto1111Status = async () => {
   try {
-    await auto1111Service.client.get('/config/health');
+    await apiService.getServerStatus();
     auto1111Status.value = {
       color: 'success',
       icon: 'mdi-check-circle',
-      message: 'Auto1111 is connected'
+      message: 'Server is connected'
     };
   } catch (error) {
     auto1111Status.value = {
       color: 'error',
       icon: 'mdi-alert-circle',
-      message: 'Auto1111 is not connected'
+      message: 'Server is not connected'
     };
   }
 };

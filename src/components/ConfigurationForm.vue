@@ -198,8 +198,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
+import apiService from '@/services/api';
 import { DEFAULT_TXT2IMG_PARAMS } from '@/services/auto1111/types';
-import auto1111Service from '@/services/auto1111/service';
 
 const props = defineProps({
   config: {
@@ -265,7 +265,7 @@ const handleCancel = () => {
 
 const loadModels = async () => {
   try {
-    models.value = auto1111Service.getModels();
+    models.value = await apiService.getAvailableModels();
   } catch (error) {
     console.error('Error loading models:', error);
   }
@@ -273,7 +273,7 @@ const loadModels = async () => {
 
 const loadSamplers = async () => {
   try {
-    samplers.value = auto1111Service.getSamplers();
+    samplers.value = await apiService.getAvailableSamplers();
   } catch (error) {
     console.error('Error loading samplers:', error);
   }
@@ -281,7 +281,7 @@ const loadSamplers = async () => {
 
 const loadUpscalers = async () => {
   try {
-    upscalers.value = auto1111Service.getUpscalers();
+    upscalers.value = await apiService.getAvailableUpscalers();
 
     // Set defaults if needed
     if (!formData.value.hr_upscaler && upscalers.value.length > 0) {
@@ -303,10 +303,11 @@ const updateSteps = (value) => {
 onMounted(async () => {
   loading.value = true;
   try {
-    await auto1111Service.initialize();
-    loadModels();
-    loadSamplers();
-    loadUpscalers();
+    await Promise.all([
+      loadModels(),
+      loadSamplers(),
+      loadUpscalers()
+    ]);
   } catch (error) {
     emit('error', error);
   } finally {
