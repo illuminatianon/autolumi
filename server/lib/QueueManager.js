@@ -3,6 +3,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getPngMetadata } from './pngMetadata.js';
 import { PNG } from 'pngjs';
+import sharp from 'sharp';
 
 export class QueueManager {
   constructor(auto1111Client, imageManager) {
@@ -110,45 +111,11 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
-      console.log('Reading image from:', job.imagePath);
-
-      // Create a PNG instance and read the file properly
-      const png = new PNG();
-      const metadata = await new Promise((resolve, reject) => {
-        let chunks = [];
-        fs.createReadStream(job.imagePath)
-          .pipe(new PNG({
-            filterType: -1,
-            checkCRC: false  // Might help with some PNGs
-          }))
-          .on('metadata', function(metadata) {
-            console.log('PNG metadata event:', metadata);
-          })
-          .on('parsed', function() {
-            console.log('PNG parsed, data:', {
-              width: this.width,
-              height: this.height,
-              gamma: this.gamma,
-              chunks: chunks
-            });
-          })
-          .on('data', function(chunk) {
-            chunks.push(chunk);
-          })
-          .on('end', function() {
-            console.log('PNG chunks:', chunks.map(c => ({
-              type: c.name,
-              data: c.data?.toString()
-            })));
-          })
-          .on('error', reject);
-      });
-
-      // Read the file for base64
       const imageBuffer = await fs.promises.readFile(job.imagePath);
-      const base64Image = imageBuffer.toString('base64');
+      const metadata = await getImageMetadata(job.imagePath);
+      console.log('Extracted metadata:', metadata);
 
-      // Prepare the upscale request with the metadata we found
+      const base64Image = imageBuffer.toString('base64');
       const upscaleRequest = {
         init_images: [base64Image],
         script_name: "SD upscale",
@@ -159,11 +126,8 @@ export class QueueManager {
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
-        prompt: png.text?.parameters ? png.text.parameters.split('\nNegative prompt:')[0].trim() : "",
-        negative_prompt: png.text?.parameters ?
-          (png.text.parameters.includes('Negative prompt:') ?
-            png.text.parameters.split('Negative prompt:')[1].split('\n')[0].trim() : "")
-          : "",
+        prompt: metadata.prompt,
+        negative_prompt: metadata.negative_prompt,
         steps: 20,
         cfg_scale: 7,
         width: 512,
@@ -230,33 +194,27 @@ export class QueueManager {
   }
 }
 
-async function extractPngMetadata(buffer) {
-  return new Promise((resolve, reject) => {
-    const png = new PNG();
-    png.parse(buffer, (error, data) => {
-      if (error) {
-        reject(error);
-        return;
-      }
+async function getImageMetadata(imagePath) {
+  try {
+    const metadata = await sharp(imagePath).metadata();
+    console.log('Image metadata:', metadata);
 
-      try {
-        const parameters = png.text.parameters;
-        if (!parameters) {
-          resolve({ prompt: "", negative_prompt: "" });
-          return;
-        }
+    // Find the parameters comment
+    const parameters = metadata.comments?.find(c => c.keyword === 'parameters')?.text;
 
-        const parts = parameters.split('\nNegative prompt: ');
-        const prompt = parts[0].trim();
-        const negative_prompt = parts[1] ? parts[1].split('\n')[0].trim() : "";
+    if (parameters) {
+      console.log('Found parameters:', parameters);
+      const parts = parameters.split('\nNegative prompt:');
+      return {
+        prompt: parts[0].trim(),
+        negative_prompt: parts[1] ? parts[1].split('\n')[0].trim() : ''
+      };
+    }
 
-        resolve({
-          prompt,
-          negative_prompt
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
-  });
+    console.log('No parameters found in image metadata');
+    return { prompt: '', negative_prompt: '' };
+  } catch (error) {
+    console.error('Error reading image metadata:', error);
+    return { prompt: '', negative_prompt: '' };
+  }
 }
