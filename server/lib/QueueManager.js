@@ -158,7 +158,7 @@ export class QueueManager {
       const jobName = pathParts[pathParts.indexOf('output') + 1];
 
       // Save the upscaled image using the ImageManager
-      const [savedPath] = await this.imageManager.saveImages(jobName, [result.images[0]]);
+      const [savedPath] = await this.imageManager.saveImages('upscaled', [result.images[0]]);
       console.log('Upscaled image saved to:', savedPath);
 
       // Update job with result
