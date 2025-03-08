@@ -66,9 +66,7 @@ configRouter.post('/models/active', async (req, res) => {
 // Initialize Auto1111 client
 configRouter.post('/initialize', async (req, res) => {
   try {
-    console.log('Initializing Auto1111 client...');
     const result = await req.services.auto1111.initialize();
-    console.log('Auto1111 client initialized successfully');
     res.json(result);
   } catch (error) {
     console.error('Error initializing Auto1111:', error);

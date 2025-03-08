@@ -22,10 +22,6 @@ export class Auto1111Client {
       this.samplers = samplers.data;
       this.models = models.data;
 
-      console.log('Successfully connected to Auto1111 API');
-      console.log('Found samplers:', this.samplers);
-      console.log('Found models:', this.models);
-
       return {
         samplers: this.samplers,
         models: this.models
