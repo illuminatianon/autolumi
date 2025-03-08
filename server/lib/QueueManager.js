@@ -190,19 +190,27 @@ export class QueueManager {
   }
 
   async processGenerationJob(job) {
-    // Set the model if specified
-    if (job.config.model) {
-      await this.auto1111.setModel(job.config.model);
+    try {
+      // Set the model if specified
+      if (job.config.model) {
+        await this.auto1111.setModel(job.config.model);
+      }
+
+      // Generate the images
+      const result = await this.auto1111.txt2img({
+        ...job.config,
+        save_images: true,
+      });
+
+      // Skip the grid image if this was a batch generation
+      const images = job.config.batch_size > 1 ? result.images.slice(1) : result.images;
+
+      // Save images and update job
+      job.images = await this.imageManager.saveImages(job.config.name, images);
+    } catch (error) {
+      console.error('Error in generation:', error);
+      throw error;
     }
-
-    // Generate the images
-    const result = await this.auto1111.txt2img({
-      ...job.config,
-      save_images: true,
-    });
-
-    // Save images and update job
-    job.images = await this.imageManager.saveImages(job.config.name, result.images);
   }
 }
 
