@@ -7,6 +7,7 @@
     "server"
   ],
   "scripts": {
+    "vite": "vite",
     "dev": "concurrently \"vite\" \"yarn workspace autolumi-server dev\"",
     "build": "vite build",
     "preview": "vite preview",

@@ -42,12 +42,12 @@ export class ImageManager {
         .map(f => parseInt(f.slice(0, 5), 10)) // Get first 5 digits
         .filter(n => !isNaN(n));
 
-      // Return count + 1, or 1 if no files
-      return numbers.length > 0 ? numbers.length + 1 : 1;
+      // Return count + 1, or 0 if no files
+      return numbers.length > 0 ? numbers.length + 1 : 0;
     } catch (error) {
       if (error.code === 'ENOENT') {
         // Directory doesn't exist yet, start at 1
-        return 1;
+        return 0;
       }
       console.error('Failed to read job directory:', error);
       throw error;
@@ -78,7 +78,7 @@ export class ImageManager {
       const savedPath = await this.saveImage(jobName, images[i]);
       savedPaths.push(savedPath);
     }
-
+    console.log('savedPaths', savedPaths);
     return savedPaths;
   }
 

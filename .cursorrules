@@ -37,6 +37,11 @@ Queue Management & Workflow:
       - "script_name": "SD upscale"
       - "script_args": an array 
 
+Image output:
+ - Output filenames: 00000.png WHERE the 5 digit number is "count(imagesInFolder)+1"
+ - Results of "normal" jobs in data/output/JobName/
+ - Results of "upscale" jobs in data/output/upscaled/
+
 Additional Considerations:
   - The backend service decodes the base64 images from the API and can optionally save them or send them to the frontend.
   - User notifications (e.g., via WebSockets or HTTP polling) can inform clients when a priority job completes.

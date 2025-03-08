@@ -238,7 +238,7 @@
                     class="transition-swing"
                   >
                     <v-img
-                      :src="`http://localhost:3001/output/${image.path}`"
+                      :src="`${image.path}`"
                       :aspect-ratio="image.config.width / image.config.height"
                       @click="showImageDetails(image)"
                     >
@@ -320,7 +320,7 @@
         <v-row no-gutters>
           <v-col cols="12" md="8">
             <v-img
-              :src="`http://localhost:3001/output/${imageDialog.image.path}`"
+              :src="`${imageDialog.image.path}`"
               class="bg-grey-lighten-2"
               max-height="80vh"
               contain

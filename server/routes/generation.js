@@ -35,8 +35,8 @@ generationRouter.post('/upscale', async (req, res) => {
       }
     });
 
-    // Fix the path to be absolute - go up one level from server to project root
-    const fullImagePath = path.join(process.cwd(), '..', 'data', 'output', imagePath);
+    // Fix the path to be absolute
+    const fullImagePath = path.join(process.cwd(), imagePath);
     console.log('Full image path:', fullImagePath);
 
     // Validate request

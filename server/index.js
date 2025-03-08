@@ -21,7 +21,7 @@ const auto1111Client = new Auto1111Client({
 
 const dataDir = path.join(__dirname, '..', 'data');
 const configManager = new ConfigManager(dataDir);
-const imageManager = new ImageManager(dataDir);
+const imageManager = new ImageManager(path.join(dataDir, 'output'));
 const queueManager = new QueueManager(auto1111Client, imageManager);
 
 // Initialize managers

@@ -203,17 +203,15 @@ export class QueueManager {
       // Generate the images
       const result = await this.auto1111.txt2img({
         ...job.config,
-        save_images: true,
       });
 
       // Skip the grid image if this was a batch generation
-      const images = job.config.batch_size > 1 ? result.images.slice(1) : result.images;
-
+      const images = job.config.batch_size > 100 ? result.images.slice(1) : result.images;
       // Save images and update job
-      const savedImages = await this.imageManager.saveImages(job.config.name, images);
+      job.images = await this.imageManager.saveImages(job.config.name, images);
 
-      // Make sure we're returning the paths as strings
-      job.images = savedImages.map(img => img.path);
+      // convert job.images to URLs by adding THE SERVER URL
+      job.images = job.images.map(imagePath => `/data/output/${imagePath.replace(/\\/g, '/')}`);
 
       console.log('Generation job completed:', {
         jobId: job.id,
