@@ -81,14 +81,4 @@ export class ImageManager {
     console.log('savedPaths', savedPaths);
     return savedPaths;
   }
-
-  async saveBase64Image(base64Data, filePath) {
-    const imageData = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(imageData, 'base64');
-    await fs.promises.writeFile(filePath, buffer);
-  }
-
-  getImageUrl(relativePath) {
-    return `/output/${relativePath}`;
-  }
 }

@@ -12,7 +12,7 @@ configRouter.get('/health', async (req, res) => {
     console.error('Health check failed:', error);
     res.status(503).json({
       status: 'error',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -85,8 +85,8 @@ configRouter.post('/initialize', async (req, res) => {
       error: error.message,
       details: {
         url: req.services.auto1111.client.defaults.baseURL,
-        message: 'Make sure Stable Diffusion Web UI is running with the --api flag'
-      }
+        message: 'Make sure Stable Diffusion Web UI is running with the --api flag',
+      },
     });
   }
 });
@@ -117,7 +117,7 @@ configRouter.put('/generation/:name', async (req, res) => {
   try {
     const config = await req.services.configManager.updateConfig({
       ...req.body,
-      name: req.params.name
+      name: req.params.name,
     });
     res.json(config);
   } catch (error) {

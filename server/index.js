@@ -19,7 +19,7 @@ const port = process.env.PORT || 3001;
 
 // Initialize services
 const auto1111Client = new Auto1111Client({
-  baseURL: process.env.AUTO1111_API_URL || 'http://127.0.0.1:7860'
+  baseURL: process.env.AUTO1111_API_URL || 'http://127.0.0.1:7860',
 });
 
 const dataDir = path.join(__dirname, '..', 'data');
@@ -30,7 +30,7 @@ const queueManager = new QueueManager(auto1111Client, imageManager);
 // Initialize managers
 await Promise.all([
   configManager.initialize(),
-  imageManager.initialize()
+  imageManager.initialize(),
 ]);
 
 // Middleware
@@ -47,7 +47,7 @@ app.use((req, res, next) => {
     auto1111: auto1111Client,
     queueManager,
     configManager,
-    imageManager
+    imageManager,
   };
   next();
 });
@@ -62,8 +62,8 @@ app.use((err, req, res) => {
   res.status(err.status || 500).json({
     error: {
       message: err.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
-    }
+      ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
+    },
   });
 });
 

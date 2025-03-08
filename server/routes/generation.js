@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import process from 'process';
 
 export const generationRouter = express.Router();
 
@@ -9,7 +10,7 @@ generationRouter.post('/txt2img', async (req, res) => {
   try {
     const job = await req.services.queueManager.addJob({
       type: 'txt2img',
-      config: req.body
+      config: req.body,
     });
     res.json(job);
   } catch (error) {
@@ -31,8 +32,8 @@ generationRouter.post('/upscale', async (req, res) => {
         upscale_tile_overlap: config.upscale_tile_overlap,
         upscale_upscaler: config.upscale_upscaler,
         upscale_scale_factor: config.upscale_scale_factor,
-        upscale_denoising_strength: config.upscale_denoising_strength
-      }
+        upscale_denoising_strength: config.upscale_denoising_strength,
+      },
     });
 
     // Fix the path to be absolute
@@ -54,7 +55,7 @@ generationRouter.post('/upscale', async (req, res) => {
     const job = await req.services.queueManager.addJob({
       type: 'upscale',
       imagePath: fullImagePath,
-      config
+      config,
     });
 
     console.log('Queued upscale job:', job);

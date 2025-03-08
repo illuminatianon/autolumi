@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { getPngMetadata } from './pngMetadata.js';
-import { PNG } from 'pngjs';
 import sharp from 'sharp';
 
 export class QueueManager {
@@ -12,7 +10,6 @@ export class QueueManager {
     this.generationQueue = [];
     this.priorityQueue = []; // For upscale jobs
     this.currentJob = null;
-    this.jobMap = new Map(); // Track all jobs by ID
     this.isProcessing = false;
     this.jobs = new Map();
     this.queue = [];
@@ -40,19 +37,12 @@ export class QueueManager {
     }, 1000);
   }
 
-  stop() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
-  }
-
   async addJob(job) {
     const jobId = uuidv4();
     const newJob = {
       id: jobId,
       status: 'pending',
-      ...job
+      ...job,
     };
 
     this.jobs.set(jobId, newJob);
@@ -122,7 +112,7 @@ export class QueueManager {
 
       // Continue processing if still running
       if (this.isProcessing) {
-        this.processNextJob();
+        await this.processNextJob();  // Added await here
       }
     }
   }
@@ -137,7 +127,7 @@ export class QueueManager {
 
       console.log('Processing upscale job:', {
         originalPath: job.imagePath,
-        extractedJobName: jobName
+        extractedJobName: jobName,
       });
 
       const imageBuffer = await fs.promises.readFile(job.imagePath);
@@ -147,11 +137,11 @@ export class QueueManager {
       const base64Image = imageBuffer.toString('base64');
       const upscaleRequest = {
         init_images: [base64Image],
-        script_name: "SD upscale",
+        script_name: 'SD upscale',
         script_args: [
           null,
           job.config.upscale_tile_overlap || 64,
-          job.config.upscale_upscaler || "4x-UltraSharp",
+          job.config.upscale_upscaler || '4x-UltraSharp',
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
@@ -162,14 +152,14 @@ export class QueueManager {
         width: 512,
         height: 512,
         restore_faces: false,
-        sampler_name: "Euler a"
+        sampler_name: 'Euler a',
       };
 
       console.log('Upscale request:', {
         ...upscaleRequest,
         init_images: ['<base64 data omitted>'],
         prompt: upscaleRequest.prompt,
-        negative_prompt: upscaleRequest.negative_prompt
+        negative_prompt: upscaleRequest.negative_prompt,
       });
 
       // Process the upscale
@@ -216,7 +206,7 @@ export class QueueManager {
       console.log('Generation job completed:', {
         jobId: job.id,
         numImages: images.length,
-        savedPaths: job.images
+        savedPaths: job.images,
       });
 
       return job;
@@ -275,7 +265,7 @@ async function getImageMetadata(imagePath) {
       const parts = parameters.split('\nNegative prompt:');
       return {
         prompt: parts[0].trim(),
-        negative_prompt: parts[1] ? parts[1].split('\n')[0].trim() : ''
+        negative_prompt: parts[1] ? parts[1].split('\n')[0].trim() : '',
       };
     }
 

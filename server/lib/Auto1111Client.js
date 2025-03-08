@@ -16,7 +16,7 @@ export class Auto1111Client {
       console.log('Attempting to connect to Auto1111 API...');
       const [samplers, models] = await Promise.all([
         this.client.get('/sdapi/v1/samplers'),
-        this.client.get('/sdapi/v1/sd-models')
+        this.client.get('/sdapi/v1/sd-models'),
       ]);
 
       this.samplers = samplers.data;
@@ -24,7 +24,7 @@ export class Auto1111Client {
 
       return {
         samplers: this.samplers,
-        models: this.models
+        models: this.models,
       };
     } catch (error) {
       console.error('Auto1111 connection error:', {
@@ -32,13 +32,13 @@ export class Auto1111Client {
         code: error.code,
         response: error.response ? {
           status: error.response.status,
-          data: error.response.data
+          data: error.response.data,
         } : 'No response',
         config: {
           url: error.config?.url,
           baseURL: error.config?.baseURL,
-          method: error.config?.method
-        }
+          method: error.config?.method,
+        },
       });
       throw new Error(`Failed to initialize Auto1111 client: ${error.message}`);
     }
@@ -47,7 +47,7 @@ export class Auto1111Client {
   async setModel(model_name) {
     try {
       await this.client.post('/sdapi/v1/options', {
-        sd_model_checkpoint: model_name
+        sd_model_checkpoint: model_name,
       });
     } catch (error) {
       throw new Error(`Failed to set model: ${error.message}`);
@@ -68,7 +68,7 @@ export class Auto1111Client {
       console.log('Sending img2img request:', {
         ...params,
         init_images: params.init_images ? ['<base64 data>'] : undefined,
-        script_args: params.script_args
+        script_args: params.script_args,
       });
       const response = await this.client.post('/sdapi/v1/img2img', params);
       return response.data;
@@ -76,7 +76,7 @@ export class Auto1111Client {
       console.error('Auto1111 img2img error:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
       });
       throw new Error(`Failed to upscale image: ${error.message}`);
     }

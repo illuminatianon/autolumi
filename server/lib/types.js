@@ -1,6 +1,6 @@
 export const DEFAULT_GENERATION_PARAMS = {
   steps: 25,
-  sampler_name: "Euler a",
+  sampler_name: 'Euler a',
   cfg_scale: 10,
   width: 512,
   height: 512,

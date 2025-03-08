@@ -23,11 +23,6 @@ async function queueUpscale(imagePath, config) {
   return response.data;
 }
 
-async function getJobStatus(jobId) {
-  const response = await apiService.get(`/generation/job/${jobId}`);
-  return response.data;
-}
-
 async function getQueueStatus() {
   const response = await apiService.get('/generation/queue');
   return response.data;
@@ -46,11 +41,6 @@ async function getAvailableModels() {
 
 async function getAvailableSamplers() {
   const response = await apiService.get('/config/samplers');
-  return response.data;
-}
-
-async function getAvailableUpscalers() {
-  const response = await apiService.get('/config/upscalers');
   return response.data;
 }
 
@@ -78,11 +68,9 @@ export {
   apiService,
   queueGeneration,
   queueUpscale,
-  getJobStatus,
   getQueueStatus,
   getAvailableModels,
   getAvailableSamplers,
-  getAvailableUpscalers,
   getServerStatus,
   getDefaultConfig,
   getUpscalers,

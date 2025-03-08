@@ -65,15 +65,6 @@ export class ConfigManager {
     await this.saveConfigs(configs);
   }
 
-  async getConfig(name) {
-    const configs = await this.loadConfigs();
-    const config = configs.find(c => c.name === name);
-    if (!config) {
-      throw new Error(`Configuration "${name}" not found`);
-    }
-    return config;
-  }
-
   async getAllConfigs() {
     return this.loadConfigs();
   }
