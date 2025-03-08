@@ -102,7 +102,7 @@
 import { ref, computed } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
-import auto1111Service from '@/services/auto1111/service';
+
 
 const configStore = useConfigStore();
 const configs = computed(() => configStore.configs);

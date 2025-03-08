@@ -128,3 +128,13 @@ configRouter.delete('/generation/:name', async (req, res) => {
       .json({ error: error.message });
   }
 });
+
+configRouter.get('/defaults', async (req, res) => {
+  try {
+    // Import from our backend types
+    const { DEFAULT_GENERATION_PARAMS } = await import('../lib/types.js');
+    res.json(DEFAULT_GENERATION_PARAMS);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});

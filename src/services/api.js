@@ -51,6 +51,11 @@ class ApiService {
     const response = await this.client.get('/config/health');
     return response.data;
   }
+
+  async getDefaultConfig() {
+    const response = await this.client.get('/config/defaults');
+    return response.data;
+  }
 }
 
 export default new ApiService();

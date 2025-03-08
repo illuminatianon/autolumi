@@ -199,7 +199,6 @@
 import { ref, computed, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import apiService from '@/services/api';
-import { DEFAULT_TXT2IMG_PARAMS } from '@/services/auto1111/types';
 
 const props = defineProps({
   config: {
@@ -218,13 +217,29 @@ const samplers = ref([]);
 const models = ref([]);
 const upscalers = ref([]);
 
-const defaultForm = {
+const defaultForm = ref({
   name: '',
   model: '',
-  ...DEFAULT_TXT2IMG_PARAMS
-};
+  steps: 25,
+  sampler_name: '',
+  cfg_scale: 10,
+  width: 512,
+  height: 512,
+  batch_size: 1,
+  prompt: '',
+  negative_prompt: '',
+  hr_resize_x: 0,
+  hr_resize_y: 0,
+  hr_denoising_strength: 0.7,
+  hr_second_pass_steps: 20,
+  hr_upscaler: '',
+  upscale_tile_overlap: 64,
+  upscale_scale_factor: 2.5,
+  upscale_upscaler: '',
+  upscale_denoising_strength: 0.15,
+});
 
-const formData = ref({ ...defaultForm });
+const formData = ref({ ...defaultForm.value });
 
 const validateUniqueName = (value) => {
   if (!value) return true;
@@ -239,7 +254,7 @@ const resetForm = () => {
   if (isEditing.value) {
     formData.value = { ...props.config };
   } else {
-    formData.value = { ...defaultForm };
+    formData.value = { ...defaultForm.value };
   }
   form.value?.resetValidation();
 };
@@ -265,7 +280,11 @@ const handleCancel = () => {
 
 const loadModels = async () => {
   try {
-    models.value = await apiService.getAvailableModels();
+    const response = await apiService.getAvailableModels();
+    models.value = response.map(m => ({
+      title: m.model_name,
+      model_name: m.model_name
+    }));
   } catch (error) {
     console.error('Error loading models:', error);
   }
@@ -273,7 +292,8 @@ const loadModels = async () => {
 
 const loadSamplers = async () => {
   try {
-    samplers.value = await apiService.getAvailableSamplers();
+    const response = await apiService.getAvailableSamplers();
+    samplers.value = response.map(s => s.name);
   } catch (error) {
     console.error('Error loading samplers:', error);
   }
@@ -281,7 +301,8 @@ const loadSamplers = async () => {
 
 const loadUpscalers = async () => {
   try {
-    upscalers.value = await apiService.getAvailableUpscalers();
+    const response = await apiService.getAvailableUpscalers();
+    upscalers.value = response.map(u => u.name);
 
     // Set defaults if needed
     if (!formData.value.hr_upscaler && upscalers.value.length > 0) {
@@ -303,6 +324,18 @@ const updateSteps = (value) => {
 onMounted(async () => {
   loading.value = true;
   try {
+    // Get defaults from backend
+    const defaults = await apiService.getDefaultConfig();
+    defaultForm.value = {
+      name: '',
+      model: '',
+      ...defaults
+    };
+
+    // Update formData with either config or new defaults
+    formData.value = props.config ? { ...props.config } : { ...defaultForm.value };
+
+    // Then load the rest
     await Promise.all([
       loadModels(),
       loadSamplers(),
@@ -312,10 +345,6 @@ onMounted(async () => {
     emit('error', error);
   } finally {
     loading.value = false;
-  }
-
-  if (props.config) {
-    formData.value = { ...props.config };
   }
 });
 </script>
