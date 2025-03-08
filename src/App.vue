@@ -77,6 +77,8 @@
                         size="small"
                         class="mr-2"
                         @click.stop="queueGeneration(config)"
+                        :loading="isGenerating(config)"
+                        :disabled="isGenerating(config)"
                       />
                     </template>
 
@@ -174,6 +176,7 @@ import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import auto1111Service from '@/services/auto1111/service';
+import generationService from '@/services/generation';
 
 const configStore = useConfigStore();
 const hasGeneratedImages = ref(false);
@@ -192,6 +195,9 @@ const configDialog = ref({
   show: false,
   config: null
 });
+
+const activeJobs = ref(new Map()); // Map<configName, jobId>
+const jobStatuses = ref(new Map()); // Map<jobId, status>
 
 const showConfigDialog = (config = null) => {
   configDialog.value = {
@@ -256,9 +262,70 @@ const getConfigSummary = (config) => {
   return parts.join(' • ');
 };
 
-const queueGeneration = (config) => {
-  // TODO: Implement generation queueing
-  console.log('Queueing generation for config:', config.name);
+const isGenerating = (config) => {
+  const jobId = activeJobs.value.get(config.name);
+  if (!jobId) return false;
+
+  const status = jobStatuses.value.get(jobId);
+  return status && ['pending', 'processing'].includes(status.status);
+};
+
+const queueGeneration = async (config) => {
+  try {
+    const job = await generationService.queueGeneration(config);
+    activeJobs.value.set(config.name, job.id);
+    jobStatuses.value.set(job.id, job);
+    startPollingJob(job.id);
+  } catch (error) {
+    console.error('Error queueing generation:', error);
+    // TODO: Show error notification
+  }
+};
+
+const pollInterval = ref(null);
+const pollJobs = async () => {
+  const jobIds = Array.from(jobStatuses.value.keys());
+
+  for (const jobId of jobIds) {
+    try {
+      const status = await generationService.getJobStatus(jobId);
+      jobStatuses.value.set(jobId, status);
+
+      // If job is complete or failed, stop tracking it
+      if (['completed', 'failed'].includes(status.status)) {
+        const configName = Array.from(activeJobs.value.entries())
+          .find(([_, id]) => id === jobId)?.[0];
+
+        if (configName) {
+          activeJobs.value.delete(configName);
+        }
+        jobStatuses.value.delete(jobId);
+
+        if (status.status === 'completed') {
+          // TODO: Handle completed job (show images)
+          console.log('Job completed:', status);
+        } else {
+          // TODO: Show error notification
+          console.error('Job failed:', status.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error polling job status:', error);
+    }
+  }
+
+  // If no more jobs to track, stop polling
+  if (jobStatuses.value.size === 0) {
+    clearInterval(pollInterval.value);
+    pollInterval.value = null;
+  }
+};
+
+const startPollingJob = (jobId) => {
+  // Start polling if not already polling
+  if (!pollInterval.value) {
+    pollInterval.value = setInterval(pollJobs, 1000);
+  }
 };
 
 onMounted(async () => {
@@ -270,6 +337,10 @@ onMounted(async () => {
 
   // Load configs
   await configStore.fetchConfigs();
+
+  // Initial queue status check
+  const queueStatus = await generationService.getQueueStatus();
+  // TODO: Handle existing queue status
 });
 </script>
 
