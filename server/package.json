@@ -4,6 +4,9 @@
     "description": "Backend server for AutoLumi",
     "main": "index.js",
     "type": "module",
+    "env": {
+        "node": true
+    },
     "scripts": {
         "start": "node index.js",
         "dev": "nodemon index.js"

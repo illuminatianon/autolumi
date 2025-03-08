@@ -1,5 +1,5 @@
-import js from '@eslint/js'
-import pluginVue from 'eslint-plugin-vue'
+import js from '@eslint/js';
+import pluginVue from 'eslint-plugin-vue';
 
 export default [
   {
@@ -13,11 +13,22 @@ export default [
   },
 
   js.configs.recommended,
-  ...pluginVue.configs['flat/recommended'],
+  ...pluginVue.configs[ 'flat/recommended' ],
 
   {
     rules: {
       'vue/multi-word-component-names': 'off',
     },
-  }
-]
+  },
+  {
+    'overrides': [
+      {
+        'files': ['server/**/*.js'],
+        'env': {
+          'node': true,
+        },
+      },
+    ],
+  },
+
+];
