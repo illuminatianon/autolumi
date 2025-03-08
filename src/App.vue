@@ -10,7 +10,7 @@
 
       <!-- Auto1111 Status -->
       <v-tooltip :text="auto1111Status.message">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-icon
             v-bind="props"
             :color="auto1111Status.color"
@@ -71,7 +71,7 @@
       <v-list>
         <template v-for="job in sortedJobs" :key="job.id">
           <v-list-item>
-            <template v-slot:prepend>
+            <template #prepend>
               <v-progress-circular
                 v-if="job.status === 'processing'"
                 indeterminate
@@ -107,7 +107,7 @@
             <v-list-item-title>{{ job.config.name }}</v-list-item-title>
             <v-list-item-subtitle>{{ getJobStatus(job) }}</v-list-item-subtitle>
 
-            <template v-slot:append>
+            <template #append>
               <v-btn
                 v-if="job.status === 'pending'"
                 icon="mdi-close"
@@ -150,13 +150,13 @@
                 :key="config.name"
                 :value="config.name"
               >
-                <template v-slot:activator="{ props }">
+                <template #activator="{ props }">
                   <v-list-item
                     v-bind="props"
                     :title="config.name"
                     :subtitle="getConfigSummary(config)"
                   >
-                    <template v-slot:prepend>
+                    <template #prepend>
                       <v-btn
                         icon="mdi-play"
                         variant="text"
@@ -168,7 +168,7 @@
                       />
                     </template>
 
-                    <template v-slot:append>
+                    <template #append>
                       <v-btn
                         icon="mdi-pencil"
                         variant="text"
@@ -242,7 +242,7 @@
                       :aspect-ratio="image.config.width / image.config.height"
                       @click="showImageDetails(image)"
                     >
-                      <template v-slot:placeholder>
+                      <template #placeholder>
                         <div class="d-flex align-center justify-center fill-height">
                           <v-progress-circular
                             indeterminate
@@ -392,11 +392,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watchEffect } from 'vue';
+import { ref, computed, onMounted} from 'vue';
 import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
-import {apiService, getServerStatus} from '@/services/api';
+import { getServerStatus} from '@/services/api';
 import generationService from '@/services/generation';
 
 const configStore = useConfigStore();
