@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { getPngMetadata } from './pngMetadata.js';  // We'll need to create this
 
 export class QueueManager {
   constructor(auto1111Client, imageManager) {
@@ -120,14 +121,21 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
-      // Read the image file
+      // Read the image file and its metadata
       const imageBuffer = await fs.promises.readFile(job.imagePath);
+      const metadata = await getPngMetadata(imageBuffer);
+
+      console.log('Original image metadata:', {
+        prompt: metadata.prompt,
+        negative_prompt: metadata.negative_prompt
+      });
+
       const base64Image = imageBuffer.toString('base64');
 
       // Prepare the upscale request
       const upscaleRequest = {
         init_images: [base64Image],
-        script_name: "SD upscale",  // This is the correct name, do not change!
+        script_name: "SD upscale",
         script_args: [
           null,
           job.config.upscale_tile_overlap || 64,
@@ -135,8 +143,9 @@ export class QueueManager {
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
-        prompt: "",
-        negative_prompt: "",
+        // Use the original prompts from the PNG metadata
+        prompt: metadata.prompt || "",
+        negative_prompt: metadata.negative_prompt || "",
         steps: 20,
         cfg_scale: 7,
         width: 512,
@@ -149,9 +158,8 @@ export class QueueManager {
         script_name: upscaleRequest.script_name,
         script_args: upscaleRequest.script_args,
         denoising_strength: upscaleRequest.denoising_strength,
-        sampler_name: upscaleRequest.sampler_name,
-        steps: upscaleRequest.steps,
-        cfg_scale: upscaleRequest.cfg_scale
+        prompt: upscaleRequest.prompt,
+        negative_prompt: upscaleRequest.negative_prompt
       });
 
       // Process the upscale
