@@ -31,20 +31,26 @@ export class ImageManager {
     }
   }
 
-  async getNextImageNumber() {
+  async getNextImageNumber(jobDir) {
     try {
-      const files = await fs.promises.readdir(this.outputDir);
-      if (files.length === 0) return 1;
+      // Read all files in the job directory
+      const files = await fs.promises.readdir(jobDir);
 
+      // Filter for PNG files and extract numbers
       const numbers = files
         .filter(f => f.endsWith('.png'))
-        .map(f => parseInt(f.split('.')[0], 10))
+        .map(f => parseInt(f.slice(0, 5), 10)) // Get first 5 digits
         .filter(n => !isNaN(n));
 
-      return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+      // Return count + 1, or 1 if no files
+      return numbers.length > 0 ? numbers.length + 1 : 1;
     } catch (error) {
+      if (error.code === 'ENOENT') {
+        // Directory doesn't exist yet, start at 1
+        return 1;
+      }
       console.error('Failed to read job directory:', error);
-      return 1;
+      throw error;
     }
   }
 
@@ -54,7 +60,7 @@ export class ImageManager {
     }
     try {
       const jobDir = await this.ensureJobDirectory(jobName);
-      const nextNum = await this.getNextImageNumber();
+      const nextNum = await this.getNextImageNumber(jobDir);
       const filename = `${nextNum.toString().padStart(5, '0')}.png`;
       const filePath = path.join(jobDir, filename);
       await fs.promises.writeFile(filePath, Buffer.from(imageData, 'base64'));
@@ -68,30 +74,9 @@ export class ImageManager {
   async saveImages(jobName, images) {
     const savedPaths = [];
 
-    // Create job directory
-    const jobDir = path.join(this.outputDir, jobName);
-    await fs.promises.mkdir(jobDir, { recursive: true });
-
     for (let i = 0; i < images.length; i++) {
-      try {
-        // Get next number synchronously for this batch
-        const number = String(i + 1).padStart(5, '0');
-        const filename = `${number}.png`;
-        const filePath = path.join(jobDir, filename);
-
-        // Save the image
-        await this.saveBase64Image(images[i], filePath);
-
-        // Get file info
-        const stats = await fs.promises.stat(filePath);
-        savedPaths.push({
-          path: path.join(jobName, filename), // Relative path
-          date: stats.mtime.getTime(),
-          name: filename
-        });
-      } catch (error) {
-        console.error(`Error saving image ${i} for job ${jobName}:`, error);
-      }
+      const savedPath = await this.saveImage(jobName, images[i]);
+      savedPaths.push(savedPath);
     }
 
     return savedPaths;
