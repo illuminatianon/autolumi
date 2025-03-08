@@ -278,7 +278,7 @@
                             color="primary"
                             size="small"
                             prepend-icon="mdi-arrow-up-bold"
-                            @click.stop="upscaleImage(image)"
+                            @click.stop="handleUpscale(image)"
                           >
                             Upscale
                           </v-btn>
@@ -387,7 +387,7 @@
               <v-btn
                 color="primary"
                 prepend-icon="mdi-arrow-up-bold"
-                @click="upscaleImage(imageDialog.image)"
+                @click="handleUpscale(imageDialog.image)"
               >
                 Upscale
               </v-btn>
@@ -407,7 +407,7 @@ import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import auto1111Service from '@/services/auto1111/service';
-import generationService from '@/services/generation';
+import generationService, { upscaleImage } from '@/services/generation';
 
 const configStore = useConfigStore();
 const drawer = ref(false);
@@ -669,10 +669,41 @@ const showImageDetails = (image) => {
   };
 };
 
-const upscaleImage = async (image) => {
-  // TODO: Implement upscale functionality
-  console.log('Upscale image:', image);
-};
+const selectedImage = ref(null);
+const isUpscaling = ref(false);
+
+async function handleUpscale(image) {
+  if (isUpscaling.value) return;
+
+  try {
+    isUpscaling.value = true;
+    selectedImage.value = image;
+
+    // Get the upscale config from the original generation config
+    const upscaleConfig = {
+      upscale_tile_overlap: image.config.upscale_tile_overlap || 64,
+      upscale_upscaler: image.config.upscale_upscaler || 'R-ESRGAN 4x+',
+      upscale_scale_factor: image.config.upscale_scale_factor || 2.5,
+      upscale_denoising_strength: image.config.upscale_denoising_strength || 0.15,
+    };
+
+    // Queue the upscale job
+    const job = await generationService.queueUpscale(image.path, upscaleConfig);
+
+    // Add to job tracking
+    jobStatuses.value.set(job.id, job);
+    startPollingJob(job.id);
+
+    // Close the lightbox if open
+    imageDialog.value.show = false;
+  } catch (error) {
+    console.error('Failed to upscale:', error);
+    alert('Failed to upscale image: ' + error.message);
+  } finally {
+    isUpscaling.value = false;
+    selectedImage.value = null;
+  }
+}
 
 onMounted(async () => {
   // Initial check

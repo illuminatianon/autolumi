@@ -45,6 +45,39 @@ class GenerationService {
       throw error;
     }
   }
+
+  async queueUpscale(imagePath, config) {
+    try {
+      const response = await this.client.post('/upscale', {
+        imagePath,
+        config,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error queueing upscale:', error);
+      throw error;
+    }
+  }
 }
 
 export default new GenerationService();
+
+export async function upscaleImage(imagePath, config) {
+  const response = await fetch('/api/generation/upscale', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      imagePath,
+      config,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to upscale image');
+  }
+
+  return response.json();
+}

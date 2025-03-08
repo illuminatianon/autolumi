@@ -1,73 +1,78 @@
-import fs from 'fs/promises';
 import path from 'path';
+import fs from 'fs';
 
 export class ImageManager {
-  constructor(dataDir) {
-    this.outputDir = path.join(dataDir, 'output');
+  constructor() {
+    // Move up one level from server directory to project root
+    const projectRoot = path.join(process.cwd(), '..');
+    this.outputDir = path.join(projectRoot, 'data', 'output');
   }
 
   async initialize() {
+    // Ensure output directory exists on startup
     try {
-      await fs.mkdir(this.outputDir, { recursive: true });
-    } catch (error) {
-      console.error('Error initializing image manager:', error);
-      throw error;
+      await fs.promises.mkdir(this.outputDir, { recursive: true });
+      console.log('Output directory initialized:', this.outputDir);
+    } catch (err) {
+      console.error('Failed to create output directory:', err);
+      throw err;
     }
   }
 
   async ensureJobDirectory(jobName) {
+    if (!jobName) {
+      throw new Error('Job name is required');
+    }
     const jobDir = path.join(this.outputDir, jobName);
-    await fs.mkdir(jobDir, { recursive: true });
-    return jobDir;
+    try {
+      await fs.promises.mkdir(jobDir, { recursive: true });
+      return jobDir;
+    } catch (error) {
+      console.error('Failed to create job directory:', error);
+      throw new Error(`Failed to create directory for job ${jobName}: ${error.message}`);
+    }
   }
 
   async getNextFileNumber(jobDir) {
     try {
-      const files = await fs.readdir(jobDir);
+      const files = await fs.promises.readdir(jobDir);
       const numbers = files
-        .map(f => parseInt(path.parse(f).name))
+        .map(f => parseInt(f.split('.')[0]))
         .filter(n => !isNaN(n));
-      return numbers.length > 0 ? Math.max(...numbers) + 1 : 0;
+      return numbers.length ? Math.max(...numbers) + 1 : 0;
     } catch (error) {
+      console.error('Failed to read job directory:', error);
       return 0;
     }
   }
 
   async saveImage(jobName, imageData) {
+    if (!imageData) {
+      throw new Error('Image data is required');
+    }
     try {
-      if (!imageData) {
-        throw new Error('No image data provided');
-      }
-
       const jobDir = await this.ensureJobDirectory(jobName);
-      const nextNumber = await this.getNextFileNumber(jobDir);
-      const fileName = `${String(nextNumber).padStart(5, '0')}.png`;
-      const filePath = path.join(jobDir, fileName);
-
-      // Auto1111 returns raw base64 strings, so we need to convert them to buffers
-      const imageBuffer = Buffer.from(imageData, 'base64');
-      await fs.writeFile(filePath, imageBuffer);
-
-      // Return the relative path from the output directory
-      return path.join(jobName, fileName);
+      const nextNum = await this.getNextFileNumber(jobDir);
+      const filename = `${nextNum.toString().padStart(5, '0')}.png`;
+      const filePath = path.join(jobDir, filename);
+      await fs.promises.writeFile(filePath, Buffer.from(imageData, 'base64'));
+      return path.relative(this.outputDir, filePath);
     } catch (error) {
-      console.error('Error saving image:', error);
-      throw error;
+      console.error('Failed to save image:', error);
+      throw new Error(`Failed to save image for job ${jobName}: ${error.message}`);
     }
   }
 
   async saveImages(jobName, images) {
-    if (!Array.isArray(images) || images.length === 0) {
-      console.warn('No images to save');
-      return [];
+    if (!Array.isArray(images)) {
+      throw new Error('Images must be an array');
     }
-
-    const savedPaths = [];
-    for (const image of images) {
-      const relativePath = await this.saveImage(jobName, image);
-      savedPaths.push(relativePath);
+    const paths = [];
+    for (const imageData of images) {
+      const path = await this.saveImage(jobName, imageData);
+      paths.push(path);
     }
-    return savedPaths;
+    return paths;
   }
 
   getImageUrl(relativePath) {

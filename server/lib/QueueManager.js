@@ -1,142 +1,195 @@
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
 export class QueueManager {
   constructor(auto1111Client, imageManager) {
     this.auto1111 = auto1111Client;
     this.imageManager = imageManager;
     this.generationQueue = [];
-    this.upscaleQueue = [];
+    this.priorityQueue = []; // For upscale jobs
+    this.currentJob = null;
+    this.jobMap = new Map(); // Track all jobs by ID
     this.isProcessing = false;
-    this.jobs = new Map(); // Store all jobs by ID
+  }
+
+  start() {
+    console.log('Starting queue processor...');
+    this.isProcessing = true;
+    this.processNextJob();
+  }
+
+  stop() {
+    console.log('Stopping queue processor...');
+    this.isProcessing = false;
   }
 
   addGenerationJob(config) {
     const job = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       type: 'generation',
-      config,
       status: 'pending',
-      result: null,
+      timestamp: new Date(),
+      config,
       images: [],
-      error: null,
-      timestamp: new Date()
     };
+
     this.generationQueue.push(job);
-    this.jobs.set(job.id, job);
+    this.jobMap.set(job.id, job);
+
+    // Start processing if not already processing
+    if (!this.currentJob) {
+      this.processNextJob();
+    }
+
     return job;
   }
 
-  addUpscaleJob(image, config) {
+  addUpscaleJob(imagePath, config) {
     const job = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       type: 'upscale',
-      image,
-      config,
       status: 'pending',
-      result: null,
-      images: [],
-      error: null,
-      timestamp: new Date()
+      timestamp: new Date(),
+      imagePath,
+      config,
     };
-    this.upscaleQueue.push(job);
-    this.jobs.set(job.id, job);
+
+    this.priorityQueue.push(job);
+    this.jobMap.set(job.id, job);
+
+    // Start processing if not already processing
+    if (!this.currentJob) {
+      this.processNextJob();
+    }
+
     return job;
+  }
+
+  getJobStatus(jobId) {
+    return this.jobMap.get(jobId);
+  }
+
+  getQueueStatus() {
+    return {
+      currentJob: this.currentJob,
+      priorityQueueLength: this.priorityQueue.length,
+      generationQueueLength: this.generationQueue.length,
+      jobs: Array.from(this.jobMap.values()),
+    };
   }
 
   async processNextJob() {
-    if (this.isProcessing) return;
+    if (!this.isProcessing || this.currentJob) return;
 
-    let job = null;
+    // Priority queue (upscale jobs) takes precedence
+    const job = this.priorityQueue.shift() || this.generationQueue.shift();
+    if (!job) {
+      // No jobs to process, check again in a second
+      setTimeout(() => this.processNextJob(), 1000);
+      return;
+    }
+
+    this.currentJob = job;
+    job.status = 'processing';
+
     try {
-      this.isProcessing = true;
-
-      // Priority: process upscale jobs first
-      job = this.upscaleQueue.shift() || this.generationQueue.shift();
-      if (!job) {
-        this.isProcessing = false;
-        return;
-      }
-
-      job.status = 'processing';
-
       if (job.type === 'upscale') {
-        console.log('Starting upscale...');
-        const result = await this.auto1111.img2img({
-          ...job.config,
-          init_images: [job.image]
-        });
-        console.log('Upscale result structure:', Object.keys(result));
-
-        // Save upscaled image
-        if (result?.images?.length > 0) {
-          console.log('Got upscale images, count:', result.images.length);
-          console.log('First image type:', typeof result.images[0]);
-          console.log('First image length:', result.images[0]?.length);
-          job.images = await this.imageManager.saveImages(
-            `${job.config.name}_upscaled`,
-            result.images
-          );
-          job.result = result;
-        } else {
-          throw new Error('No images returned from upscale');
-        }
+        await this.processUpscaleJob(job);
       } else {
-        console.log('Starting txt2img generation...');
-        const result = await this.auto1111.txt2img(job.config);
-        console.log('txt2img result structure:', Object.keys(result));
-
-        // Save generated images
-        if (result?.images?.length > 0) {
-          console.log('Got generated images, count:', result.images.length);
-          console.log('First image type:', typeof result.images[0]);
-          console.log('First image length:', result.images[0]?.length);
-          job.images = await this.imageManager.saveImages(
-            job.config.name,
-            result.images
-          );
-          job.result = result;
-          console.log('Images saved:', job.images);
-        } else {
-          console.log('No images in result:', result);
-          throw new Error('No images returned from generation');
-        }
+        await this.processGenerationJob(job);
       }
-
       job.status = 'completed';
     } catch (error) {
-      console.error('Job processing error:', error);
-      if (job) {
-        job.status = 'failed';
-        job.error = error.message;
-      }
+      console.error(`Error processing ${job.type} job:`, error);
+      job.status = 'failed';
+      job.error = error.message;
     } finally {
-      this.isProcessing = false;
+      this.currentJob = null;
+      // Clean up completed/failed jobs after a delay
+      setTimeout(() => {
+        this.jobMap.delete(job.id);
+      }, 5 * 60 * 1000); // Keep job status for 5 minutes
 
-      // Clean up old completed/failed jobs after 5 minutes
-      if (job && ['completed', 'failed'].includes(job.status)) {
-        setTimeout(() => {
-          this.jobs.delete(job.id);
-        }, 5 * 60 * 1000);
+      // Continue processing if still running
+      if (this.isProcessing) {
+        this.processNextJob();
       }
     }
   }
 
-  start() {
-    // Process queue every 1 second
-    setInterval(() => this.processNextJob(), 1000);
+  async processUpscaleJob(job) {
+    try {
+      // Read the image file
+      const imageBuffer = await fs.promises.readFile(job.imagePath);
+      const base64Image = imageBuffer.toString('base64');
+
+      // Prepare the upscale request
+      const upscaleRequest = {
+        init_images: [base64Image],
+        script_name: "SD upscale",
+        script_args: [
+          null, // First argument is always null for SD upscale
+          job.config.upscale_tile_overlap || 64,
+          job.config.upscale_upscaler || "R-ESRGAN 4x+",
+          job.config.upscale_scale_factor || 2.5,
+        ],
+        denoising_strength: job.config.upscale_denoising_strength || 0.15,
+        // Add other required img2img parameters
+        prompt: "", // Empty prompt for upscale
+        negative_prompt: "",
+        steps: 20,
+        cfg_scale: 7,
+        width: 512, // These will be overridden by the upscale script
+        height: 512,
+        restore_faces: false,
+        sampler_name: "Euler a"
+      };
+
+      console.log('Processing upscale job with config:', {
+        ...upscaleRequest,
+        init_images: ['<base64 image data>'] // Don't log the full base64
+      });
+
+      // Process the upscale
+      const result = await this.auto1111.img2img(upscaleRequest);
+
+      if (!result.images?.[0]) {
+        throw new Error('No image returned from upscale operation');
+      }
+
+      console.log('Upscale successful, saving result...');
+
+      // Extract the job name from the image path
+      const normalizedPath = job.imagePath.replace(/\\/g, '/');
+      const pathParts = normalizedPath.split('/');
+      const jobName = pathParts[pathParts.indexOf('output') + 1];
+
+      // Save the upscaled image using the ImageManager
+      const [savedPath] = await this.imageManager.saveImages(jobName, result.images);
+
+      // Update job with result
+      job.upscaledPath = savedPath;
+      console.log('Upscale complete, saved to:', savedPath);
+    } catch (error) {
+      console.error('Error in upscale processing:', error);
+      throw error;
+    }
   }
 
-  getJobStatus(jobId) {
-    return this.jobs.get(jobId);
-  }
+  async processGenerationJob(job) {
+    // Set the model if specified
+    if (job.config.model) {
+      await this.auto1111.setModel(job.config.model);
+    }
 
-  getQueueStatus() {
-    const jobs = Array.from(this.jobs.values());
-    return {
-      generation: jobs.filter(j => j.type === 'generation' && j.status === 'pending').length,
-      upscale: jobs.filter(j => j.type === 'upscale' && j.status === 'pending').length,
-      processing: jobs.filter(j => j.status === 'processing').length,
-      completed: jobs.filter(j => j.status === 'completed').length,
-      failed: jobs.filter(j => j.status === 'failed').length,
-      isProcessing: this.isProcessing
-    };
+    // Generate the images
+    const result = await this.auto1111.txt2img({
+      ...job.config,
+      save_images: true,
+    });
+
+    // Save images and update job
+    job.images = await this.imageManager.saveImages(job.config.name, result.images);
   }
 }

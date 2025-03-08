@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 
 export const generationRouter = express.Router();
 
@@ -16,10 +17,20 @@ generationRouter.post('/txt2img', async (req, res) => {
 // Add upscale job to queue
 generationRouter.post('/upscale', async (req, res) => {
   try {
-    const { image, config } = req.body;
-    const job = req.services.queueManager.addUpscaleJob(image, config);
+    const { imagePath, config } = req.body;
+    if (!imagePath || !config) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Convert relative path to absolute path using the correct data directory
+    const projectRoot = path.join(process.cwd(), '..');
+    const fullImagePath = path.join(projectRoot, 'data', 'output', imagePath);
+
+    // Add to priority queue
+    const job = req.services.queueManager.addUpscaleJob(fullImagePath, config);
     res.json(job);
   } catch (error) {
+    console.error('Error queueing upscale:', error);
     res.status(500).json({ error: error.message });
   }
 });

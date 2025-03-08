@@ -69,13 +69,23 @@ export class Auto1111Client {
 
   async img2img(params) {
     try {
-      const response = await this.client.post('/sdapi/v1/img2img', {
+      console.log('Sending img2img request with params:', {
         ...params,
-        script_name: "SD upscale",
-        script_args: [null, 64, "R-ESRGAN 4x+", 2.5]
+        init_images: params.init_images ? [`${params.init_images[0].slice(0, 50)}...`] : undefined // Truncate base64 for logging
       });
+
+      const response = await this.client.post('/sdapi/v1/img2img', params);
       return response.data;
     } catch (error) {
+      console.error('Auto1111 img2img error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          params: error.config?.data ? JSON.parse(error.config.data) : undefined
+        }
+      });
       throw new Error(`Failed to upscale image: ${error.message}`);
     }
   }
