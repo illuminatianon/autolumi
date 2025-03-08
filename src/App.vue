@@ -234,54 +234,65 @@
             </div>
             <v-row v-else>
               <v-col
-                v-for="(job, index) in completedJobs"
-                :key="index"
-                cols="12"
-                sm="6"
-                md="4"
+                v-for="image in allImages"
+                :key="image.id"
+                cols="6"
+                sm="4"
+                md="3"
+                xl="2"
+                class="d-flex"
               >
-                <v-card>
-                  <v-card-title class="text-subtitle-1">{{ job.config.name }}</v-card-title>
-                  <v-card-subtitle>{{ new Date(job.timestamp).toLocaleString() }}</v-card-subtitle>
-                  <v-container fluid class="pa-0">
-                    <v-row>
-                      <v-col
-                        v-for="(imagePath, imageIndex) in job.images"
-                        :key="imageIndex"
-                        cols="12"
-                        :sm="job.images.length > 1 ? 6 : 12"
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    v-bind="props"
+                    :elevation="isHovering ? 8 : 2"
+                    class="transition-swing flex-grow-1 d-flex flex-column"
+                    height="250"
+                  >
+                    <div class="flex-grow-1 position-relative">
+                      <v-img
+                        :src="`http://localhost:3001/output/${image.path}`"
+                        class="bg-grey-lighten-2"
+                        height="100%"
+                        contain
+                        @click="showImageDetails(image)"
                       >
-                        <v-img
-                          :src="`http://localhost:3001/output/${imagePath}`"
-                          :aspect-ratio="1"
-                          cover
-                          class="bg-grey-lighten-2"
+                        <template v-slot:placeholder>
+                          <div class="d-flex align-center justify-center fill-height">
+                            <v-progress-circular
+                              indeterminate
+                              color="primary"
+                            />
+                          </div>
+                        </template>
+
+                        <div
+                          v-if="isHovering"
+                          class="d-flex flex-column fill-height position-absolute"
+                          style="background: rgba(0, 0, 0, 0.7); inset: 0;"
                         >
-                          <template v-slot:placeholder>
-                            <div class="d-flex align-center justify-center fill-height">
-                              <v-progress-circular
-                                indeterminate
-                                color="primary"
-                              />
-                            </div>
-                          </template>
-                        </v-img>
-                      </v-col>
-                    </v-row>
-                  </v-container>
-                  <v-card-actions>
-                    <v-spacer />
-                    <v-btn
-                      variant="text"
-                      color="primary"
-                      prepend-icon="mdi-arrow-up-bold"
-                      @click="upscaleImage(job)"
-                      :disabled="!job.images.length"
-                    >
-                      Upscale
-                    </v-btn>
-                  </v-card-actions>
-                </v-card>
+                          <v-card-title class="text-white text-subtitle-2 pt-2">{{ image.jobName }}</v-card-title>
+                          <v-card-subtitle class="text-white text-caption pb-0">
+                            {{ new Date(image.timestamp).toLocaleString() }}
+                          </v-card-subtitle>
+                          <v-spacer />
+                          <v-card-actions>
+                            <v-spacer />
+                            <v-btn
+                              variant="tonal"
+                              color="primary"
+                              size="small"
+                              prepend-icon="mdi-arrow-up-bold"
+                              @click.stop="upscaleImage(image)"
+                            >
+                              Upscale
+                            </v-btn>
+                          </v-card-actions>
+                        </div>
+                      </v-img>
+                    </div>
+                  </v-card>
+                </v-hover>
               </v-col>
             </v-row>
           </v-col>
@@ -304,6 +315,94 @@
       />
     </v-dialog>
 
+    <!-- Image Details Dialog -->
+    <v-dialog
+      v-model="imageDialog.show"
+      max-width="90vw"
+      max-height="90vh"
+    >
+      <v-card v-if="imageDialog.image">
+        <v-toolbar color="primary" class="text-white">
+          <v-toolbar-title>{{ imageDialog.image.jobName }}</v-toolbar-title>
+          <v-spacer />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            color="white"
+            @click="imageDialog.show = false"
+          />
+        </v-toolbar>
+
+        <v-row no-gutters>
+          <v-col cols="12" md="8">
+            <v-img
+              :src="`http://localhost:3001/output/${imageDialog.image.path}`"
+              class="bg-grey-lighten-2"
+              max-height="80vh"
+              contain
+            />
+          </v-col>
+          <v-col cols="12" md="4" class="pa-4">
+            <h3 class="text-h6 mb-2">Generation Details</h3>
+            <v-list density="compact">
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Generated</v-list-item-title>
+                <v-list-item-subtitle>{{ new Date(imageDialog.image.timestamp).toLocaleString() }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Model</v-list-item-title>
+                <v-list-item-subtitle>{{ imageDialog.image.config.model }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Size</v-list-item-title>
+                <v-list-item-subtitle>{{ imageDialog.image.config.width }}x{{ imageDialog.image.config.height }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Steps</v-list-item-title>
+                <v-list-item-subtitle>{{ imageDialog.image.config.steps }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">CFG Scale</v-list-item-title>
+                <v-list-item-subtitle>{{ imageDialog.image.config.cfg_scale }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Sampler</v-list-item-title>
+                <v-list-item-subtitle>{{ imageDialog.image.config.sampler_name }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-divider class="my-2" />
+
+              <v-list-item>
+                <v-list-item-title class="text-caption text-medium-emphasis">Prompt</v-list-item-title>
+                <v-list-item-subtitle class="text-wrap">{{ imageDialog.image.config.prompt }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item v-if="imageDialog.image.config.negative_prompt">
+                <v-list-item-title class="text-caption text-medium-emphasis">Negative Prompt</v-list-item-title>
+                <v-list-item-subtitle class="text-wrap">{{ imageDialog.image.config.negative_prompt }}</v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+
+            <v-card-actions>
+              <v-spacer />
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-arrow-up-bold"
+                @click="upscaleImage(imageDialog.image)"
+              >
+                Upscale
+              </v-btn>
+            </v-card-actions>
+          </v-col>
+        </v-row>
+      </v-card>
+    </v-dialog>
+
     <app-footer />
   </v-app>
 </template>
@@ -322,7 +421,25 @@ const showSettings = ref(false);
 
 const configs = computed(() => configStore.configs);
 const completedJobs = ref([]);
-const hasGeneratedImages = computed(() => completedJobs.value.length > 0);
+const allImages = computed(() => {
+  const images = [];
+  for (const job of completedJobs.value) {
+    for (let i = 0; i < job.images.length; i++) {
+      images.push({
+        id: `${job.id}_${i}`,
+        path: job.images[i],
+        jobName: job.config.name,
+        timestamp: job.timestamp,
+        config: job.config,
+        jobId: job.id,
+        index: i
+      });
+    }
+  }
+  return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+});
+
+const hasGeneratedImages = computed(() => allImages.value.length > 0);
 
 const auto1111Status = ref({
   color: 'warning',
@@ -546,9 +663,21 @@ const cancelJob = async (job) => {
   console.log('Cancel job:', job.id);
 };
 
-const upscaleImage = async (job) => {
+const imageDialog = ref({
+  show: false,
+  image: null
+});
+
+const showImageDetails = (image) => {
+  imageDialog.value = {
+    show: true,
+    image
+  };
+};
+
+const upscaleImage = async (image) => {
   // TODO: Implement upscale functionality
-  console.log('Upscale image:', job);
+  console.log('Upscale image:', image);
 };
 
 onMounted(async () => {
@@ -579,5 +708,13 @@ onMounted(async () => {
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
     min-height: auto;
   }
+}
+
+.position-relative {
+  position: relative;
+}
+
+.position-absolute {
+  position: absolute;
 }
 </style>
