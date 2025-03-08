@@ -31,7 +31,7 @@
         <v-row>
           <v-col cols="6">
             <v-text-field v-model.number="formData.steps" label="Steps" type="number" min="1" max="150"
-              :rules="[v => v >= 1 && v <= 150 || 'Steps must be between 1 and 150']" />
+              :rules="[v => v >= 1 && v <= 150 || 'Steps must be between 1 and 150']" @update:model-value="updateSteps" />
           </v-col>
           <v-col cols="6">
             <v-text-field v-model.number="formData.cfg_scale" label="CFG Scale" type="number" min="1" max="30" step="0.5"
@@ -105,6 +105,25 @@
             />
           </v-col>
         </v-row>
+
+        <v-col cols="12" md="6">
+          <v-text-field
+            v-model.number="formData.hr_second_pass_steps"
+            label="Hires Steps"
+            type="number"
+            min="1"
+            :rules="[v => v > 0 || 'Steps must be greater than 0']"
+          />
+        </v-col>
+
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="formData.hr_upscaler"
+            :items="upscalers"
+            label="Upscaler"
+            :rules="[v => !!v || 'Upscaler is required']"
+          />
+        </v-col>
       </v-card-text>
 
       <v-card-actions>
@@ -165,7 +184,9 @@ const defaultForm = {
   // Hires.fix defaults - enable_hr will be set to true when sending to API
   hr_resize_x: 0,
   hr_resize_y: 0,
-  denoising_strength: 0.7
+  denoising_strength: 0.7,
+  hr_second_pass_steps: 20,
+  hr_upscaler: '',
 };
 
 const formData = ref({ ...defaultForm });
@@ -207,15 +228,57 @@ const handleCancel = () => {
   emit('cancel');
 };
 
+const loadModels = async () => {
+  try {
+    const response = await auto1111Service.client.get('/sdapi/v1/models');
+    models.value = response.data.map(m => ({
+      title: m.model_name,
+      model_name: m.model_name
+    }));
+  } catch (error) {
+    console.error('Error loading models:', error);
+  }
+};
+
+const loadSamplers = async () => {
+  try {
+    const response = await auto1111Service.client.get('/sdapi/v1/samplers');
+    samplers.value = response.data.map(s => s.name);
+  } catch (error) {
+    console.error('Error loading samplers:', error);
+  }
+};
+
+const loadUpscalers = async () => {
+  try {
+    const response = await auto1111Service.client.get('/sdapi/v1/upscalers');
+    upscalers.value = response.data.map(u => u.name);
+
+    // Set default upscaler if none selected
+    if (!formData.value.hr_upscaler && upscalers.value.length > 0) {
+      // Prefer R-ESRGAN 4x+ if available, otherwise use first upscaler
+      const defaultUpscaler = upscalers.value.find(u => u === 'R-ESRGAN 4x+') || upscalers.value[0];
+      formData.value.hr_upscaler = defaultUpscaler;
+    }
+  } catch (error) {
+    console.error('Error loading upscalers:', error);
+  }
+};
+
+const updateSteps = (value) => {
+  formData.value.steps = value;
+  formData.value.hr_second_pass_steps = value;
+};
+
 onMounted(async () => {
   loading.value = true;
   try {
     await auto1111Service.initialize();
-    samplers.value = auto1111Service.getAvailableSamplers().map(s => s.name);
-    models.value = auto1111Service.getAvailableModels().map(m => ({
-      title: m.model_name,
-      model_name: m.model_name
-    }));
+    await Promise.all([
+      loadModels(),
+      loadSamplers(),
+      loadUpscalers()
+    ]);
   } catch (error) {
     emit('error', error);
   } finally {

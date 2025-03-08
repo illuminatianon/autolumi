@@ -89,6 +89,11 @@ export class Auto1111Client {
     }
   }
 
+  async getUpscalers() {
+    const response = await this.client.get('/sdapi/v1/upscalers');
+    return response.data;
+  }
+
   getAvailableSamplers() {
     return this.samplers;
   }

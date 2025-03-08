@@ -9,10 +9,16 @@ class GenerationService {
 
   async queueGeneration(config) {
     try {
-      const response = await this.client.post('/txt2img', {
+      // Ensure hires.fix parameters are properly set
+      const generationConfig = {
         ...config,
-        enable_hr: true // Always enable hiresfix
-      });
+        enable_hr: true,
+        hr_second_pass_steps: config.hr_second_pass_steps || config.steps,
+        hr_upscaler: config.hr_upscaler || 'R-ESRGAN 4x+',
+        denoising_strength: config.denoising_strength ?? 0.7,
+      };
+
+      const response = await this.client.post('/txt2img', generationConfig);
       return response.data;
     } catch (error) {
       console.error('Error queueing generation:', error);
