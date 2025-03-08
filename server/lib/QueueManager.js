@@ -16,17 +16,35 @@ export class QueueManager {
     this.isProcessing = false;
     this.jobs = new Map();
     this.queue = [];
+    this.processing = false;
+    this.interval = null;
   }
 
   start() {
-    console.log('Starting queue processor...');
-    this.isProcessing = true;
-    this.processNextJob();
+    if (this.interval) return;
+    console.log('Starting queue manager');
+
+    this.interval = setInterval(async () => {
+      if (this.processing || this.queue.length === 0) return;
+
+      try {
+        this.processing = true;
+        const jobId = this.queue.shift();
+        console.log('Processing job:', jobId);
+        await this.processJob(jobId);
+      } catch (error) {
+        console.error('Error processing job:', error);
+      } finally {
+        this.processing = false;
+      }
+    }, 1000);
   }
 
   stop() {
-    console.log('Stopping queue processor...');
-    this.isProcessing = false;
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
   }
 
   async addJob(job) {
@@ -111,6 +129,17 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
+      // Extract the job name from the image path correctly
+      // From something like: "C:/path/to/data/output/jobname/00001.png"
+      const pathParts = job.imagePath.split(path.sep);
+      const jobNameIndex = pathParts.indexOf('output') + 1;
+      const jobName = pathParts[jobNameIndex];
+
+      console.log('Processing upscale job:', {
+        originalPath: job.imagePath,
+        extractedJobName: jobName
+      });
+
       const imageBuffer = await fs.promises.readFile(job.imagePath);
       const metadata = await getImageMetadata(job.imagePath);
       console.log('Extracted metadata:', metadata);
@@ -152,11 +181,6 @@ export class QueueManager {
 
       console.log('Upscale successful, saving result...');
 
-      // Extract the job name from the image path
-      const normalizedPath = job.imagePath.replace(/\\/g, '/');
-      const pathParts = normalizedPath.split('/');
-      const jobName = pathParts[pathParts.indexOf('output') + 1];
-
       // Save the upscaled image using the ImageManager
       const [savedPath] = await this.imageManager.saveImages('upscaled', [result.images[0]]);
       console.log('Upscaled image saved to:', savedPath);
@@ -186,7 +210,18 @@ export class QueueManager {
       const images = job.config.batch_size > 1 ? result.images.slice(1) : result.images;
 
       // Save images and update job
-      job.images = await this.imageManager.saveImages(job.config.name, images);
+      const savedImages = await this.imageManager.saveImages(job.config.name, images);
+
+      // Make sure we're returning the paths as strings
+      job.images = savedImages.map(img => img.path);
+
+      console.log('Generation job completed:', {
+        jobId: job.id,
+        numImages: images.length,
+        savedPaths: job.images
+      });
+
+      return job;
     } catch (error) {
       console.error('Error in generation:', error);
       throw error;
