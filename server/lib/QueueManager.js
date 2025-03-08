@@ -120,23 +120,6 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
-      // Get available upscalers first
-      const upscalers = await this.auto1111.getUpscalers();
-      console.log('Available upscalers:', upscalers.map(u => u.name));
-
-      const requestedUpscaler = job.config.upscale_upscaler;
-      if (!requestedUpscaler) {
-        throw new Error('No upscaler specified in job config');
-      }
-
-      console.log('Requested upscaler:', requestedUpscaler);
-
-      // Verify upscaler exists
-      const validUpscaler = upscalers.find(u => u.name === requestedUpscaler);
-      if (!validUpscaler) {
-        throw new Error(`Requested upscaler "${requestedUpscaler}" not found. Available options: ${upscalers.map(u => u.name).join(', ')}`);
-      }
-
       // Read the image file
       const imageBuffer = await fs.promises.readFile(job.imagePath);
       const base64Image = imageBuffer.toString('base64');
@@ -144,11 +127,11 @@ export class QueueManager {
       // Prepare the upscale request
       const upscaleRequest = {
         init_images: [base64Image],
-        script_name: "SD upscale",
+        script_name: "SD upscale",  // This is the correct name, do not change!
         script_args: [
           null,
           job.config.upscale_tile_overlap || 64,
-          requestedUpscaler, // Use the validated upscaler name
+          job.config.upscale_upscaler || "4x-UltraSharp",
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
@@ -162,9 +145,13 @@ export class QueueManager {
         sampler_name: "Euler a"
       };
 
-      console.log('Processing upscale with config:', {
-        ...upscaleRequest,
-        init_images: ['<base64 data>']
+      console.log('Starting upscale job with params:', {
+        script_name: upscaleRequest.script_name,
+        script_args: upscaleRequest.script_args,
+        denoising_strength: upscaleRequest.denoising_strength,
+        sampler_name: upscaleRequest.sampler_name,
+        steps: upscaleRequest.steps,
+        cfg_scale: upscaleRequest.cfg_scale
       });
 
       // Process the upscale
@@ -182,11 +169,11 @@ export class QueueManager {
       const jobName = pathParts[pathParts.indexOf('output') + 1];
 
       // Save the upscaled image using the ImageManager
-      const [savedPath] = await this.imageManager.saveImages(jobName, result.images);
+      const [savedPath] = await this.imageManager.saveImages(jobName, [result.images[0]]);
+      console.log('Upscaled image saved to:', savedPath);
 
       // Update job with result
       job.upscaledPath = savedPath;
-      console.log('Upscale complete, saved to:', savedPath);
     } catch (error) {
       console.error('Error in upscale processing:', error);
       throw error;
