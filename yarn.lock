@@ -1157,6 +1157,7 @@ __metadata:
     expressjs: "npm:^1.0.1"
     pinia: "npm:^2.1.7"
     pinia-plugin-persistedstate: "npm:^4.2.0"
+    pngjs: "npm:^7.0.0"
     roboto-fontface: "npm:*"
     sass: "npm:1.77.8"
     sass-embedded: "npm:^1.77.8"
@@ -4203,6 +4204,13 @@ __metadata:
     exsolve: "npm:^1.0.1"
     pathe: "npm:^2.0.3"
   checksum: 10c0/7729d0a2367ba0aa2caf0f84a6ff0b73b13f4e9a3d62c229ddfa6d45d1f3898f590acdbaa64d779d56737d4ebea2d085961efd59094b8adf8baa34d829599b75
+  languageName: node
+  linkType: hard
+
+"pngjs@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "pngjs@npm:7.0.0"
+  checksum: 10c0/0d4c7a0fd476a9c33df7d0a2a73e1d56537628a668841f6995c2bca070cf30819f9254a64363266bc14ef2fee47659dd3b4f2b18eec7ab65143015139f497b38
   languageName: node
   linkType: hard
 
