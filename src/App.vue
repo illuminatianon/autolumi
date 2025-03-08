@@ -20,6 +20,15 @@
         </template>
       </v-tooltip>
 
+      <!-- Queue Status -->
+      <v-btn
+        icon="mdi-format-list-checks"
+        class="mr-2"
+        :badge="queueCount || undefined"
+        :badge-color="isProcessing ? 'success' : undefined"
+        @click="showQueue = !showQueue"
+      />
+
       <!-- App Settings -->
       <v-btn
         icon="mdi-cog"
@@ -38,6 +47,84 @@
           title="Generation"
           value="generation"
         />
+      </v-list>
+    </v-navigation-drawer>
+
+    <!-- Queue Panel -->
+    <v-navigation-drawer
+      v-model="showQueue"
+      temporary
+      location="right"
+      width="400"
+    >
+      <v-toolbar color="primary">
+        <v-toolbar-title class="text-white">Generation Queue</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          color="white"
+          @click="showQueue = false"
+        />
+      </v-toolbar>
+
+      <v-list>
+        <template v-for="job in sortedJobs" :key="job.id">
+          <v-list-item>
+            <template v-slot:prepend>
+              <v-progress-circular
+                v-if="job.status === 'processing'"
+                indeterminate
+                size="24"
+                color="primary"
+                class="mr-2"
+              />
+              <v-icon
+                v-else-if="job.status === 'completed'"
+                color="success"
+                icon="mdi-check-circle"
+                class="mr-2"
+              />
+              <v-icon
+                v-else-if="job.status === 'failed'"
+                color="error"
+                icon="mdi-alert-circle"
+                class="mr-2"
+              />
+              <v-progress-circular
+                v-else
+                :rotate="-90"
+                :size="24"
+                :width="2"
+                :model-value="getQueueProgress(job)"
+                color="primary"
+                class="mr-2"
+              >
+                {{ getQueuePosition(job) }}
+              </v-progress-circular>
+            </template>
+
+            <v-list-item-title>{{ job.config.name }}</v-list-item-title>
+            <v-list-item-subtitle>{{ getJobStatus(job) }}</v-list-item-subtitle>
+
+            <template v-slot:append>
+              <v-btn
+                v-if="job.status === 'pending'"
+                icon="mdi-close"
+                variant="text"
+                size="small"
+                color="error"
+                @click="cancelJob(job)"
+              />
+            </template>
+          </v-list-item>
+        </template>
+
+        <v-list-item v-if="sortedJobs.length === 0">
+          <v-list-item-title class="text-center text-medium-emphasis">
+            No jobs in queue
+          </v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-navigation-drawer>
 
@@ -267,7 +354,8 @@ const isGenerating = (config) => {
   if (!jobId) return false;
 
   const status = jobStatuses.value.get(jobId);
-  return status && ['pending', 'processing'].includes(status.status);
+  // Only show loading state when the job is actually processing
+  return status?.status === 'processing';
 };
 
 const queueGeneration = async (config) => {
@@ -285,37 +373,54 @@ const queueGeneration = async (config) => {
 const pollInterval = ref(null);
 const pollJobs = async () => {
   const jobIds = Array.from(jobStatuses.value.keys());
+  let hasActiveJobs = false;
 
   for (const jobId of jobIds) {
     try {
       const status = await generationService.getJobStatus(jobId);
-      jobStatuses.value.set(jobId, status);
 
-      // If job is complete or failed, stop tracking it
-      if (['completed', 'failed'].includes(status.status)) {
+      // If the job no longer exists on the server, remove it from our tracking
+      if (!status) {
+        jobStatuses.value.delete(jobId);
         const configName = Array.from(activeJobs.value.entries())
           .find(([_, id]) => id === jobId)?.[0];
-
         if (configName) {
           activeJobs.value.delete(configName);
         }
-        jobStatuses.value.delete(jobId);
+        continue;
+      }
 
-        if (status.status === 'completed') {
-          // TODO: Handle completed job (show images)
-          console.log('Job completed:', status);
-        } else {
-          // TODO: Show error notification
-          console.error('Job failed:', status.error);
+      jobStatuses.value.set(jobId, status);
+
+      if (['completed', 'failed'].includes(status.status)) {
+        // Remove the job from activeJobs immediately
+        const configName = Array.from(activeJobs.value.entries())
+          .find(([_, id]) => id === jobId)?.[0];
+        if (configName) {
+          activeJobs.value.delete(configName);
         }
+
+        // Remove the job from jobStatuses after a delay
+        setTimeout(() => {
+          jobStatuses.value.delete(jobId);
+        }, 5000); // Keep completed/failed jobs visible for 5 seconds
+      } else {
+        hasActiveJobs = true;
       }
     } catch (error) {
       console.error('Error polling job status:', error);
+      // If we can't get the status, assume the job is gone
+      jobStatuses.value.delete(jobId);
+      const configName = Array.from(activeJobs.value.entries())
+        .find(([_, id]) => id === jobId)?.[0];
+      if (configName) {
+        activeJobs.value.delete(configName);
+      }
     }
   }
 
-  // If no more jobs to track, stop polling
-  if (jobStatuses.value.size === 0) {
+  // If no more active jobs, stop polling
+  if (!hasActiveJobs && pollInterval.value) {
     clearInterval(pollInterval.value);
     pollInterval.value = null;
   }
@@ -326,6 +431,62 @@ const startPollingJob = (jobId) => {
   if (!pollInterval.value) {
     pollInterval.value = setInterval(pollJobs, 1000);
   }
+};
+
+const showQueue = ref(false);
+const queueCount = computed(() => jobStatuses.value.size);
+const isProcessing = computed(() => Array.from(jobStatuses.value.values()).some(job => job.status === 'processing'));
+
+const sortedJobs = computed(() => {
+  return Array.from(jobStatuses.value.values()).sort((a, b) => {
+    // Processing jobs first
+    if (a.status === 'processing' && b.status !== 'processing') return -1;
+    if (b.status === 'processing' && a.status !== 'processing') return 1;
+
+    // Then pending jobs by timestamp
+    if (a.status === 'pending' && b.status === 'pending') {
+      return new Date(a.timestamp) - new Date(b.timestamp);
+    }
+
+    // Then completed/failed jobs by timestamp, newest first
+    return new Date(b.timestamp) - new Date(a.timestamp);
+  });
+});
+
+const getQueuePosition = (job) => {
+  if (job.status !== 'pending') return '';
+  const pending = Array.from(jobStatuses.value.values())
+    .filter(j => j.status === 'pending')
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return pending.findIndex(j => j.id === job.id) + 1;
+};
+
+const getQueueProgress = (job) => {
+  if (job.status !== 'pending') return 0;
+  const position = getQueuePosition(job);
+  const total = Array.from(jobStatuses.value.values())
+    .filter(j => j.status === 'pending').length;
+  return ((total - position + 1) / total) * 100;
+};
+
+const getJobStatus = (job) => {
+  switch (job.status) {
+    case 'pending':
+      return `Queued (#${getQueuePosition(job)})`;
+    case 'processing':
+      return 'Generating...';
+    case 'completed':
+      return 'Completed';
+    case 'failed':
+      return `Failed: ${job.error}`;
+    default:
+      return job.status;
+  }
+};
+
+const cancelJob = async (job) => {
+  // TODO: Implement job cancellation
+  console.log('Cancel job:', job.id);
 };
 
 onMounted(async () => {
