@@ -40,7 +40,7 @@ configRouter.get('/models', async (req, res) => {
 // Get available upscalers
 configRouter.get('/upscalers', async (req, res) => {
   try {
-    const upscalers = await req.services.auto1111.getAvailableUpscalers();
+    const upscalers = await req.services.auto1111.getUpscalers();
     res.json(upscalers);
   } catch (error) {
     res.status(500).json({ error: error.message });
