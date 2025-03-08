@@ -164,7 +164,6 @@
                         size="small"
                         class="mr-2"
                         @click.stop="queueGeneration(config)"
-                        :loading="isGenerating(config)"
                         :disabled="isGenerating(config)"
                       />
                     </template>
