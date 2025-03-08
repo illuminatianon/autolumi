@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { QueueManager } from './lib/QueueManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
@@ -9,6 +10,8 @@ import { ConfigManager } from './lib/ConfigManager.js';
 import { ImageManager } from './lib/ImageManager.js';
 import { configRouter } from './routes/config.js';
 import { generationRouter } from './routes/generation.js';
+
+dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -54,7 +57,7 @@ app.use('/api/config', configRouter);
 app.use('/api/generation', generationRouter);
 
 // Error handling
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
     error: {

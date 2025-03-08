@@ -34,3 +34,5 @@ pnpm-debug.log*
 # Data directory
 /data/*
 !/data/.gitkeep
+/server/.env
+.env

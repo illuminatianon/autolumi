@@ -1315,6 +1315,7 @@ __metadata:
   dependencies:
     axios: "npm:^1.6.7"
     cors: "npm:^2.8.5"
+    dotenv: "npm:^16.4.7"
     express: "npm:^4.18.2"
     morgan: "npm:^1.10.0"
     nodemon: "npm:^3.0.3"
