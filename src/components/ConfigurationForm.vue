@@ -103,7 +103,7 @@
           <v-col cols="6">
             <v-select
               v-model="formData.hr_upscaler"
-              :items="upscalers"
+              :items="hrUpscalers"
               label="Hires Upscaler"
               :rules="[v => !v || !!v || 'Upscaler is required']"
             />
@@ -216,6 +216,7 @@ const isEditing = computed(() => !!props.config);
 const samplers = ref([]);
 const models = ref([]);
 const upscalers = ref([]);
+const hrUpscalers = ref([]);
 
 const defaultForm = ref({
   name: '',
@@ -301,18 +302,31 @@ const loadSamplers = async () => {
 
 const loadUpscalers = async () => {
   try {
-    const response = await apiService.getAvailableUpscalers();
-    upscalers.value = response.map(u => u.name);
+    // Get both regular and latent upscalers
+    const [upscalers, latentModes] = await Promise.all([
+      apiService.getUpscalers(),
+      apiService.getLatentUpscaleModes()
+    ]);
 
-    // Set defaults if needed
-    if (!formData.value.hr_upscaler && upscalers.value.length > 0) {
-      formData.value.hr_upscaler = upscalers.value[0];
+    // Regular upscalers for the upscale job
+    upscalers.value = upscalers;
+
+    // Combine both types for hires.fix upscaler selection
+    hrUpscalers.value = [
+      ...latentModes.map(m => m.name), // Extract names from latent modes
+      ...upscalers.map(u => u.name)
+    ];
+
+    // Set default if none selected
+    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
+      formData.value.hr_upscaler = hrUpscalers.value[0];
     }
-    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
-      formData.value.upscale_upscaler = upscalers.value[0];
+    if (!formData.value.upscale_upscaler && upscalers.length > 0) {
+      formData.value.upscale_upscaler = upscalers[0].name;
     }
   } catch (error) {
     console.error('Error loading upscalers:', error);
+    emit('error', error);
   }
 };
 

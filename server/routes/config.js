@@ -47,6 +47,17 @@ configRouter.get('/upscalers', async (req, res) => {
   }
 });
 
+// Get available latent upscale modes
+configRouter.get('/latent-upscale-modes', async (req, res) => {
+  try {
+    const modes = await req.services.auto1111.getLatentUpscaleModes();
+    res.json(modes);
+  } catch (error) {
+    console.error('Error getting latent upscale modes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Set active model
 configRouter.post('/models/active', async (req, res) => {
   try {

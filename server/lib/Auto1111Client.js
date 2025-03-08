@@ -101,6 +101,11 @@ export class Auto1111Client {
     }
   }
 
+  async getLatentUpscaleModes() {
+    const response = await this.client.get('/sdapi/v1/latent-upscale-modes');
+    return response.data;
+  }
+
   getAvailableSamplers() {
     return this.samplers;
   }

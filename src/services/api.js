@@ -56,6 +56,16 @@ class ApiService {
     const response = await this.client.get('/config/defaults');
     return response.data;
   }
+
+  async getUpscalers() {
+    const response = await this.client.get('/config/upscalers');
+    return response.data;
+  }
+
+  async getLatentUpscaleModes() {
+    const response = await this.client.get('/config/latent-upscale-modes');
+    return response.data;
+  }
 }
 
 export default new ApiService();
