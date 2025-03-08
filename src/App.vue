@@ -213,16 +213,6 @@
             <div v-else class="d-flex justify-center align-center" style="min-height: 200px">
               <v-progress-circular indeterminate />
             </div>
-
-            <v-alert
-              v-if="configStore.error"
-              type="error"
-              closable
-              class="mt-4"
-              @click:close="configStore.clearError()"
-            >
-              {{ configStore.error }}
-            </v-alert>
           </v-col>
 
           <!-- Right side - Results -->
