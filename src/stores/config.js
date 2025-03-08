@@ -2,14 +2,14 @@ import { defineStore } from 'pinia';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api'
+  baseURL: 'http://localhost:3001/api',
 });
 
 export const useConfigStore = defineStore('config', {
   state: () => ({
     configs: [],
     loading: false,
-    error: null
+    error: null,
   }),
 
   actions: {
@@ -82,8 +82,8 @@ export const useConfigStore = defineStore('config', {
 
     clearError() {
       this.error = null;
-    }
+    },
   },
 
-  persist: true
+  persist: true,
 });

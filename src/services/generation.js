@@ -1,4 +1,4 @@
-import { queueGeneration, queueUpscale,  getQueueStatus, cancelJob } from './api';
+import { cancelJob, getQueueStatus, queueGeneration, queueUpscale } from './api';
 
 class GenerationService {
   async queueGeneration(config) {

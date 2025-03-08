@@ -5,8 +5,8 @@ const apiService = axios.create({
   baseURL: 'http://localhost:3001/api',
   timeout: 30000, // 30 second timeout
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
 // Generation
@@ -18,7 +18,7 @@ async function queueGeneration(config) {
 async function queueUpscale(imagePath, config) {
   const response = await apiService.post('/generation/upscale', {
     imagePath,
-    config
+    config,
   });
   return response.data;
 }
@@ -75,5 +75,5 @@ export {
   getDefaultConfig,
   getUpscalers,
   getLatentUpscaleModes,
-  cancelJob
+  cancelJob,
 };

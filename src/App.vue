@@ -69,7 +69,10 @@
       </v-toolbar>
 
       <v-list>
-        <template v-for="job in sortedJobs" :key="job.id">
+        <template
+          v-for="job in sortedJobs"
+          :key="job.id"
+        >
           <v-list-item>
             <template #prepend>
               <v-progress-circular
@@ -132,7 +135,10 @@
       <v-container fluid>
         <v-row>
           <!-- Left side - Configuration List -->
-          <v-col cols="12" md="4">
+          <v-col
+            cols="12"
+            md="4"
+          >
             <div class="d-flex align-center justify-space-between mb-4">
               <h2 class="text-h5">Generation Configs</h2>
               <v-btn
@@ -144,7 +150,10 @@
               </v-btn>
             </div>
 
-            <v-list v-if="!configStore.loading" lines="two">
+            <v-list
+              v-if="!configStore.loading"
+              lines="two"
+            >
               <v-list-group
                 v-for="config in configs"
                 :key="config.name"
@@ -196,8 +205,15 @@
                       <div><strong>Batch Size:</strong> {{ config.batch_size }}</div>
                       <div class="mt-2"><strong>Prompt:</strong></div>
                       <div class="text-wrapped">{{ config.prompt }}</div>
-                      <div v-if="config.negative_prompt" class="mt-2"><strong>Negative Prompt:</strong></div>
-                      <div v-if="config.negative_prompt" class="text-wrapped">{{ config.negative_prompt }}</div>
+                      <div
+                        v-if="config.negative_prompt"
+                        class="mt-2"
+                      ><strong>Negative Prompt:</strong></div>
+                      <div
+                        v-if="config.negative_prompt"
+                        class="text-wrapped"
+                      >{{ config.negative_prompt }}
+                      </div>
                     </div>
                   </v-list-item-subtitle>
                 </v-list-item>
@@ -210,18 +226,34 @@
               </v-list-item>
             </v-list>
 
-            <div v-else class="d-flex justify-center align-center" style="min-height: 200px">
+            <div
+              v-else
+              class="d-flex justify-center align-center"
+              style="min-height: 200px"
+            >
               <v-progress-circular indeterminate />
             </div>
           </v-col>
 
           <!-- Right side - Results -->
-          <v-col cols="12" md="8">
+          <v-col
+            cols="12"
+            md="8"
+          >
             <h2 class="text-h5 mb-4">Generation Results</h2>
-            <div v-if="!hasGeneratedImages" class="text-center pa-8">
-              <v-alert type="info" text="No generated images yet. Select a configuration and click generate to start."/>
+            <div
+              v-if="!hasGeneratedImages"
+              class="text-center pa-8"
+            >
+              <v-alert
+                type="info"
+                text="No generated images yet. Select a configuration and click generate to start."
+              />
             </div>
-            <v-row v-else dense>
+            <v-row
+              v-else
+              dense
+            >
               <v-col
                 v-for="image in allImages"
                 :key="image.id"
@@ -306,7 +338,10 @@
       max-height="90vh"
     >
       <v-card v-if="imageDialog.image">
-        <v-toolbar color="primary" class="text-white">
+        <v-toolbar
+          color="primary"
+          class="text-white"
+        >
           <v-toolbar-title>{{ imageDialog.image.jobName }}</v-toolbar-title>
           <v-spacer />
           <v-btn
@@ -318,7 +353,10 @@
         </v-toolbar>
 
         <v-row no-gutters>
-          <v-col cols="12" md="8">
+          <v-col
+            cols="12"
+            md="8"
+          >
             <v-img
               :src="`${imageDialog.image.path}`"
               class="bg-grey-lighten-2"
@@ -326,12 +364,19 @@
               contain
             />
           </v-col>
-          <v-col cols="12" md="4" class="pa-4">
+          <v-col
+            cols="12"
+            md="4"
+            class="pa-4"
+          >
             <h3 class="text-h6 mb-2">Generation Details</h3>
             <v-list density="compact">
               <v-list-item>
                 <v-list-item-title class="text-caption text-medium-emphasis">Generated</v-list-item-title>
-                <v-list-item-subtitle>{{ new Date(imageDialog.image.timestamp).toLocaleString() }}</v-list-item-subtitle>
+                <v-list-item-subtitle>{{
+                    new Date(imageDialog.image.timestamp).toLocaleString()
+                  }}
+                </v-list-item-subtitle>
               </v-list-item>
 
               <v-list-item>
@@ -341,7 +386,10 @@
 
               <v-list-item>
                 <v-list-item-title class="text-caption text-medium-emphasis">Size</v-list-item-title>
-                <v-list-item-subtitle>{{ imageDialog.image.config.width }}x{{ imageDialog.image.config.height }}</v-list-item-subtitle>
+                <v-list-item-subtitle>{{ imageDialog.image.config.width }}x{{
+                    imageDialog.image.config.height
+                  }}
+                </v-list-item-subtitle>
               </v-list-item>
 
               <v-list-item>
@@ -368,7 +416,10 @@
 
               <v-list-item v-if="imageDialog.image.config.negative_prompt">
                 <v-list-item-title class="text-caption text-medium-emphasis">Negative Prompt</v-list-item-title>
-                <v-list-item-subtitle class="text-wrap">{{ imageDialog.image.config.negative_prompt }}</v-list-item-subtitle>
+                <v-list-item-subtitle class="text-wrap">{{
+                    imageDialog.image.config.negative_prompt
+                  }}
+                </v-list-item-subtitle>
               </v-list-item>
             </v-list>
 
@@ -392,11 +443,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted} from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
-import { getServerStatus} from '@/services/api';
+import { getServerStatus } from '@/services/api';
 import generationService from '@/services/generation';
 
 const configStore = useConfigStore();
@@ -416,7 +467,7 @@ const allImages = computed(() => {
         timestamp: job.timestamp,
         config: job.config,
         jobId: job.id,
-        index: i
+        index: i,
       });
     }
   }
@@ -428,18 +479,18 @@ const hasGeneratedImages = computed(() => allImages.value.length > 0);
 const auto1111Status = ref({
   color: 'warning',
   icon: 'mdi-sync',
-  message: 'Checking Auto1111 connection...'
+  message: 'Checking Auto1111 connection...',
 });
 
 const configDialog = ref({
   show: false,
-  config: null
+  config: null,
 });
 
 const showConfigDialog = (config = null) => {
   configDialog.value = {
     show: true,
-    config
+    config,
   };
 };
 
@@ -478,13 +529,13 @@ const checkAuto1111Status = async () => {
     auto1111Status.value = {
       color: 'success',
       icon: 'mdi-check-circle',
-      message: 'Server is connected'
+      message: 'Server is connected',
     };
   } catch (error) {
     auto1111Status.value = {
       color: 'error',
       icon: 'mdi-alert-circle',
-      message: 'Server is not connected'
+      message: 'Server is not connected',
     };
   }
 };
@@ -494,7 +545,7 @@ const getConfigSummary = (config) => {
     `Model: ${config.model}`,
     config.hr_resize_x && config.hr_resize_y
       ? `Target: ${config.hr_resize_x}x${config.hr_resize_y}`
-      : 'No upscale'
+      : 'No upscale',
   ];
   return parts.join(' • ');
 };
@@ -505,7 +556,7 @@ const isProcessing = computed(() => queueState.value?.jobs?.some(job => job.stat
 const isGenerating = (config) => {
   return queueState.value?.jobs?.some(job =>
     job.config.name === config.name &&
-    (job.status === 'pending' || job.status === 'processing')
+    (job.status === 'pending' || job.status === 'processing'),
   ) || false;
 };
 
@@ -520,7 +571,7 @@ const queueGeneration = async (config) => {
 const showQueue = ref(false);
 const queueState = ref({
   jobs: [],
-  completedJobs: []
+  completedJobs: [],
 });
 
 const pollQueueStatus = async () => {
@@ -542,7 +593,7 @@ const pollQueueStatus = async () => {
     // Update completedJobs with any new completed jobs
     const newCompleted = (status.jobs || []).filter(job =>
       job.status === 'completed' &&
-      !completedJobs.value.some(existing => existing.id === job.id)
+      !completedJobs.value.some(existing => existing.id === job.id),
     );
 
     if (newCompleted.length > 0) {
@@ -595,13 +646,13 @@ const cancelJob = async (job) => {
 
 const imageDialog = ref({
   show: false,
-  image: null
+  image: null,
 });
 
 const showImageDetails = (image) => {
   imageDialog.value = {
     show: true,
-    image
+    image,
   };
 };
 

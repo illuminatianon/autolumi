@@ -1,5 +1,8 @@
 <template>
-  <v-footer class="footer" app>
+  <v-footer
+    class="footer"
+    app
+  >
     <v-container class="text-center">
       <span>&copy; {{ new Date().getFullYear() }} AutoLumi</span>
     </v-container>

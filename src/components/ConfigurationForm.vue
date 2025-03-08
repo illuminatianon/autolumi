@@ -5,10 +5,17 @@
       <span v-else>New Configuration</span>
     </v-card-title>
 
-    <v-form @submit.prevent="handleSubmit" ref="form">
+    <v-form
+      @submit.prevent="handleSubmit"
+      ref="form"
+    >
       <v-card-text>
-        <v-text-field v-model="formData.name" label="Configuration Name"
-          :rules="[v => !!v || 'Name is required', validateUniqueName]" required />
+        <v-text-field
+          v-model="formData.name"
+          label="Configuration Name"
+          :rules="[v => !!v || 'Name is required', validateUniqueName]"
+          required
+        />
 
         <v-select
           v-model="formData.model"
@@ -23,41 +30,90 @@
           hint="The model will be loaded when generation starts"
         />
 
-        <v-textarea v-model="formData.prompt" label="Prompt" :rules="[v => !!v || 'Prompt is required']" required
-          rows="3" />
+        <v-textarea
+          v-model="formData.prompt"
+          label="Prompt"
+          :rules="[v => !!v || 'Prompt is required']"
+          required
+          rows="3"
+        />
 
-        <v-textarea v-model="formData.negative_prompt" label="Negative Prompt" rows="2" />
+        <v-textarea
+          v-model="formData.negative_prompt"
+          label="Negative Prompt"
+          rows="2"
+        />
 
         <v-row>
           <v-col cols="6">
-            <v-text-field v-model.number="formData.steps" label="Steps" type="number" min="1" max="150"
-              :rules="[v => v >= 1 && v <= 150 || 'Steps must be between 1 and 150']" @update:model-value="updateSteps" />
+            <v-text-field
+              v-model.number="formData.steps"
+              label="Steps"
+              type="number"
+              min="1"
+              max="150"
+              :rules="[v => v >= 1 && v <= 150 || 'Steps must be between 1 and 150']"
+              @update:model-value="updateSteps"
+            />
           </v-col>
           <v-col cols="6">
-            <v-text-field v-model.number="formData.cfg_scale" label="CFG Scale" type="number" min="1" max="30" step="0.5"
-              :rules="[v => v >= 1 && v <= 30 || 'CFG Scale must be between 1 and 30']" />
+            <v-text-field
+              v-model.number="formData.cfg_scale"
+              label="CFG Scale"
+              type="number"
+              min="1"
+              max="30"
+              step="0.5"
+              :rules="[v => v >= 1 && v <= 30 || 'CFG Scale must be between 1 and 30']"
+            />
           </v-col>
         </v-row>
 
         <v-row>
           <v-col cols="6">
-            <v-text-field v-model.number="formData.width" label="Width" type="number" min="64" max="2048" step="64"
-              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Width must be between 64 and 2048 and divisible by 64']" />
+            <v-text-field
+              v-model.number="formData.width"
+              label="Width"
+              type="number"
+              min="64"
+              max="2048"
+              step="64"
+              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Width must be between 64 and 2048 and divisible by 64']"
+            />
           </v-col>
           <v-col cols="6">
-            <v-text-field v-model.number="formData.height" label="Height" type="number" min="64" max="2048" step="64"
-              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Height must be between 64 and 2048 and divisible by 64']" />
+            <v-text-field
+              v-model.number="formData.height"
+              label="Height"
+              type="number"
+              min="64"
+              max="2048"
+              step="64"
+              :rules="[v => v >= 64 && v <= 2048 && v % 64 === 0 || 'Height must be between 64 and 2048 and divisible by 64']"
+            />
           </v-col>
         </v-row>
 
         <v-row>
           <v-col cols="6">
-            <v-select v-model="formData.sampler_name" :items="samplers" label="Sampler"
-              :rules="[v => !!v || 'Sampler is required']" required :loading="!samplers.length" />
+            <v-select
+              v-model="formData.sampler_name"
+              :items="samplers"
+              label="Sampler"
+              :rules="[v => !!v || 'Sampler is required']"
+              required
+              :loading="!samplers.length"
+            />
           </v-col>
           <v-col cols="6">
-            <v-text-field v-model.number="formData.batch_size" label="Batch Size" type="number" min="1" max="8"
-              :rules="[v => v >= 1 && v <= 8 || 'Batch size must be between 1 and 8']" />
+            <v-text-field
+              v-model.number="formData.batch_size"
+              label="Batch Size"
+              type="number"
+              min="1"
+              max="8"
+              :rules="[v => v >= 1 && v <= 8 || 'Batch size must be between 1 and 8']"
+            />
           </v-col>
         </v-row>
 
@@ -184,10 +240,19 @@
 
       <v-card-actions>
         <v-spacer />
-        <v-btn color="error" variant="text" @click="handleCancel" :disabled="loading">
+        <v-btn
+          color="error"
+          variant="text"
+          @click="handleCancel"
+          :disabled="loading"
+        >
           Cancel
         </v-btn>
-        <v-btn color="primary" type="submit" :loading="loading">
+        <v-btn
+          color="primary"
+          type="submit"
+          :loading="loading"
+        >
           {{ isEditing ? 'Update' : 'Save' }}
         </v-btn>
       </v-card-actions>
@@ -196,21 +261,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import {
   getAvailableModels,
   getAvailableSamplers,
-  getUpscalers,
+  getDefaultConfig,
   getLatentUpscaleModes,
-  getDefaultConfig
+  getUpscalers,
 } from '@/services/api';
 
 const props = defineProps({
   config: {
     type: Object,
-    default: () => null
-  }
+    default: () => null,
+  },
 });
 
 const emit = defineEmits(['save', 'error', 'cancel']);
@@ -290,7 +355,7 @@ const loadModels = async () => {
     const response = await getAvailableModels();
     models.value = response.map(m => ({
       title: m.model_name,
-      model_name: m.model_name
+      model_name: m.model_name,
     }));
   } catch (error) {
     console.error('Error loading models:', error);
@@ -311,7 +376,7 @@ const loadUpscalers = async () => {
     // Get both regular and latent upscalers
     const [upscalerResponse, latentModes] = await Promise.all([
       getUpscalers(),
-      getLatentUpscaleModes()
+      getLatentUpscaleModes(),
     ]);
 
     // Regular upscalers for the upscale job
@@ -320,7 +385,7 @@ const loadUpscalers = async () => {
     // Combine both types for hires.fix upscaler selection
     hrUpscalers.value = [
       ...latentModes.map(m => m.name), // Extract names from latent modes
-      ...upscalerResponse.map(u => u.name)
+      ...upscalerResponse.map(u => u.name),
     ];
 
     // Set default if none selected
@@ -349,7 +414,7 @@ onMounted(async () => {
     defaultForm.value = {
       name: '',
       model: '',
-      ...defaults
+      ...defaults,
     };
 
     // Update formData with either config or new defaults
@@ -359,7 +424,7 @@ onMounted(async () => {
     await Promise.all([
       loadModels(),
       loadSamplers(),
-      loadUpscalers()
+      loadUpscalers(),
     ]);
   } catch (error) {
     emit('error', error);
