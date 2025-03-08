@@ -6,20 +6,23 @@ export async function getPngMetadata(buffer) {
 
     png.parse(buffer, (error, data) => {
       if (error) {
-        reject(error);
+        console.error('PNG parsing error:', error);
+        resolve({ prompt: "", negative_prompt: "" });
         return;
       }
 
       try {
-        // Auto1111 stores the parameters in the "parameters" tEXt chunk
-        const parameters = png.text.parameters;
-        if (!parameters) {
+        // Check if text chunks exist at all
+        if (!png.text || !png.text.parameters) {
+          console.log('No text metadata found in PNG');
           resolve({ prompt: "", negative_prompt: "" });
           return;
         }
 
+        const parameters = png.text;
+        console.log('Found PNG parameters:', parameters);
+
         // Parse the parameters string
-        // Format is typically: prompt\nNegative prompt: negative_prompt\nSteps: ...
         const parts = parameters.split('\nNegative prompt: ');
         const prompt = parts[0].trim();
         const negative_prompt = parts[1] ? parts[1].split('\n')[0].trim() : "";
@@ -29,7 +32,8 @@ export async function getPngMetadata(buffer) {
           negative_prompt
         });
       } catch (err) {
-        reject(err);
+        console.error('Error parsing PNG metadata:', err);
+        resolve({ prompt: "", negative_prompt: "" });
       }
     });
   });

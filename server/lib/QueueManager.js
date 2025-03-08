@@ -13,6 +13,8 @@ export class QueueManager {
     this.currentJob = null;
     this.jobMap = new Map(); // Track all jobs by ID
     this.isProcessing = false;
+    this.jobs = new Map();
+    this.queue = [];
   }
 
   start() {
@@ -26,50 +28,22 @@ export class QueueManager {
     this.isProcessing = false;
   }
 
-  addGenerationJob(config) {
-    const job = {
-      id: uuidv4(),
-      type: 'generation',
+  async addJob(job) {
+    const jobId = uuidv4();
+    const newJob = {
+      id: jobId,
       status: 'pending',
-      timestamp: new Date(),
-      config,
-      images: [],
+      ...job
     };
 
-    this.generationQueue.push(job);
-    this.jobMap.set(job.id, job);
+    this.jobs.set(jobId, newJob);
+    this.queue.push(jobId);
 
-    // Start processing if not already processing
-    if (!this.currentJob) {
-      this.processNextJob();
-    }
-
-    return job;
-  }
-
-  addUpscaleJob(imagePath, config) {
-    const job = {
-      id: uuidv4(),
-      type: 'upscale',
-      status: 'pending',
-      timestamp: new Date(),
-      imagePath,
-      config,
-    };
-
-    this.priorityQueue.push(job);
-    this.jobMap.set(job.id, job);
-
-    // Start processing if not already processing
-    if (!this.currentJob) {
-      this.processNextJob();
-    }
-
-    return job;
+    return newJob;
   }
 
   getJobStatus(jobId) {
-    return this.jobMap.get(jobId);
+    return this.jobs.get(jobId);
   }
 
   getQueueStatus() {
@@ -77,7 +51,7 @@ export class QueueManager {
       currentJob: this.currentJob,
       priorityQueueLength: this.priorityQueue.length,
       generationQueueLength: this.generationQueue.length,
-      jobs: Array.from(this.jobMap.values()),
+      jobs: Array.from(this.jobs.values()),
     };
   }
 
@@ -85,32 +59,46 @@ export class QueueManager {
     if (!this.isProcessing || this.currentJob) return;
 
     // Priority queue (upscale jobs) takes precedence
-    const job = this.priorityQueue.shift() || this.generationQueue.shift();
-    if (!job) {
+    const jobId = this.queue.shift() || this.generationQueue.shift();
+    if (!jobId) {
       // No jobs to process, check again in a second
       setTimeout(() => this.processNextJob(), 1000);
       return;
     }
 
-    this.currentJob = job;
-    job.status = 'processing';
+    this.currentJob = jobId;
+    await this.processJob(jobId);
+  }
+
+  async processJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
+    }
 
     try {
-      if (job.type === 'upscale') {
-        await this.processUpscaleJob(job);
-      } else {
-        await this.processGenerationJob(job);
+      job.status = 'processing';
+
+      switch (job.type) {
+        case 'txt2img':
+          await this.processGenerationJob(job);
+          break;
+        case 'upscale':
+          await this.processUpscaleJob(job);
+          break;
+        default:
+          throw new Error(`Unknown job type: ${job.type}`);
       }
+
       job.status = 'completed';
     } catch (error) {
-      console.error(`Error processing ${job.type} job:`, error);
+      console.error(`Error processing job ${jobId}:`, error);
       job.status = 'failed';
       job.error = error.message;
     } finally {
-      this.currentJob = null;
       // Clean up completed/failed jobs after a delay
       setTimeout(() => {
-        this.jobMap.delete(job.id);
+        this.jobs.delete(jobId);
       }, 5 * 60 * 1000); // Keep job status for 5 minutes
 
       // Continue processing if still running
@@ -122,18 +110,45 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
-      // Read the image file and its metadata
-      const imageBuffer = await fs.promises.readFile(job.imagePath);
-      const metadata = await getPngMetadata(imageBuffer);
+      console.log('Reading image from:', job.imagePath);
 
-      console.log('Original image metadata:', {
-        prompt: metadata.prompt,
-        negative_prompt: metadata.negative_prompt
+      // Create a PNG instance and read the file properly
+      const png = new PNG();
+      const metadata = await new Promise((resolve, reject) => {
+        let chunks = [];
+        fs.createReadStream(job.imagePath)
+          .pipe(new PNG({
+            filterType: -1,
+            checkCRC: false  // Might help with some PNGs
+          }))
+          .on('metadata', function(metadata) {
+            console.log('PNG metadata event:', metadata);
+          })
+          .on('parsed', function() {
+            console.log('PNG parsed, data:', {
+              width: this.width,
+              height: this.height,
+              gamma: this.gamma,
+              chunks: chunks
+            });
+          })
+          .on('data', function(chunk) {
+            chunks.push(chunk);
+          })
+          .on('end', function() {
+            console.log('PNG chunks:', chunks.map(c => ({
+              type: c.name,
+              data: c.data?.toString()
+            })));
+          })
+          .on('error', reject);
       });
 
+      // Read the file for base64
+      const imageBuffer = await fs.promises.readFile(job.imagePath);
       const base64Image = imageBuffer.toString('base64');
 
-      // Prepare the upscale request
+      // Prepare the upscale request with the metadata we found
       const upscaleRequest = {
         init_images: [base64Image],
         script_name: "SD upscale",
@@ -144,9 +159,11 @@ export class QueueManager {
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
-        // Use the original prompts from the PNG metadata
-        prompt: metadata.prompt || "",
-        negative_prompt: metadata.negative_prompt || "",
+        prompt: png.text?.parameters ? png.text.parameters.split('\nNegative prompt:')[0].trim() : "",
+        negative_prompt: png.text?.parameters ?
+          (png.text.parameters.includes('Negative prompt:') ?
+            png.text.parameters.split('Negative prompt:')[1].split('\n')[0].trim() : "")
+          : "",
         steps: 20,
         cfg_scale: 7,
         width: 512,
@@ -155,10 +172,9 @@ export class QueueManager {
         sampler_name: "Euler a"
       };
 
-      console.log('Starting upscale job with params:', {
-        script_name: upscaleRequest.script_name,
-        script_args: upscaleRequest.script_args,
-        denoising_strength: upscaleRequest.denoising_strength,
+      console.log('Upscale request:', {
+        ...upscaleRequest,
+        init_images: ['<base64 data omitted>'],
         prompt: upscaleRequest.prompt,
         negative_prompt: upscaleRequest.negative_prompt
       });
