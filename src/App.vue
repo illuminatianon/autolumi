@@ -232,7 +232,58 @@
             <div v-if="!hasGeneratedImages" class="text-center pa-8">
               <v-alert type="info" text="No generated images yet. Select a configuration and click generate to start."/>
             </div>
-            <!-- Results will be added here -->
+            <v-row v-else>
+              <v-col
+                v-for="(job, index) in completedJobs"
+                :key="index"
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card>
+                  <v-card-title class="text-subtitle-1">{{ job.config.name }}</v-card-title>
+                  <v-card-subtitle>{{ new Date(job.timestamp).toLocaleString() }}</v-card-subtitle>
+                  <v-container fluid class="pa-0">
+                    <v-row>
+                      <v-col
+                        v-for="(imagePath, imageIndex) in job.images"
+                        :key="imageIndex"
+                        cols="12"
+                        :sm="job.images.length > 1 ? 6 : 12"
+                      >
+                        <v-img
+                          :src="`http://localhost:3001/output/${imagePath}`"
+                          :aspect-ratio="1"
+                          cover
+                          class="bg-grey-lighten-2"
+                        >
+                          <template v-slot:placeholder>
+                            <div class="d-flex align-center justify-center fill-height">
+                              <v-progress-circular
+                                indeterminate
+                                color="primary"
+                              />
+                            </div>
+                          </template>
+                        </v-img>
+                      </v-col>
+                    </v-row>
+                  </v-container>
+                  <v-card-actions>
+                    <v-spacer />
+                    <v-btn
+                      variant="text"
+                      color="primary"
+                      prepend-icon="mdi-arrow-up-bold"
+                      @click="upscaleImage(job)"
+                      :disabled="!job.images.length"
+                    >
+                      Upscale
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-col>
+            </v-row>
           </v-col>
         </v-row>
       </v-container>
@@ -266,11 +317,12 @@ import auto1111Service from '@/services/auto1111/service';
 import generationService from '@/services/generation';
 
 const configStore = useConfigStore();
-const hasGeneratedImages = ref(false);
 const drawer = ref(false);
 const showSettings = ref(false);
 
 const configs = computed(() => configStore.configs);
+const completedJobs = ref([]);
+const hasGeneratedImages = computed(() => completedJobs.value.length > 0);
 
 const auto1111Status = ref({
   color: 'warning',
@@ -400,6 +452,11 @@ const pollJobs = async () => {
           activeJobs.value.delete(configName);
         }
 
+        // If job completed successfully, add it to completedJobs
+        if (status.status === 'completed' && status.images?.length > 0) {
+          completedJobs.value.unshift(status);
+        }
+
         // Remove the job from jobStatuses after a delay
         setTimeout(() => {
           jobStatuses.value.delete(jobId);
@@ -487,6 +544,11 @@ const getJobStatus = (job) => {
 const cancelJob = async (job) => {
   // TODO: Implement job cancellation
   console.log('Cancel job:', job.id);
+};
+
+const upscaleImage = async (job) => {
+  // TODO: Implement upscale functionality
+  console.log('Upscale image:', job);
 };
 
 onMounted(async () => {

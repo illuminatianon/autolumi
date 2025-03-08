@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { QueueManager } from './lib/QueueManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
 import { ConfigManager } from './lib/ConfigManager.js';
+import { ImageManager } from './lib/ImageManager.js';
 import { configRouter } from './routes/config.js';
 import { generationRouter } from './routes/generation.js';
 
@@ -18,24 +19,32 @@ const auto1111Client = new Auto1111Client({
   baseURL: process.env.AUTO1111_API_URL || 'http://127.0.0.1:7860'
 });
 
-const queueManager = new QueueManager(auto1111Client);
-const configManager = new ConfigManager(path.join(__dirname, '..', 'data'));
+const dataDir = path.join(__dirname, '..', 'data');
+const configManager = new ConfigManager(dataDir);
+const imageManager = new ImageManager(dataDir);
+const queueManager = new QueueManager(auto1111Client, imageManager);
 
-// Initialize config manager
-await configManager.initialize();
+// Initialize managers
+await Promise.all([
+  configManager.initialize(),
+  imageManager.initialize()
+]);
 
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
 
-// Make services available to routes
+// Serve output directory
+app.use('/output', express.static(path.join(dataDir, 'output')));
+
+// Add services to request
 app.use((req, res, next) => {
   req.services = {
     auto1111: auto1111Client,
     queueManager,
-    configManager
+    configManager,
+    imageManager
   };
   next();
 });
