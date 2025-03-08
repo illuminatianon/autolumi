@@ -396,8 +396,8 @@ import { ref, computed, onMounted, watchEffect } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
-import apiService from '@/services/api';
-import generationService, { upscaleImage } from '@/services/generation';
+import {apiService, getServerStatus} from '@/services/api';
+import generationService from '@/services/generation';
 
 const configStore = useConfigStore();
 const drawer = ref(false);
@@ -435,9 +435,6 @@ const configDialog = ref({
   show: false,
   config: null
 });
-
-const activeJobs = ref(new Map()); // Map<configName, jobId>
-const jobStatuses = ref(new Map()); // Map<jobId, status>
 
 const showConfigDialog = (config = null) => {
   configDialog.value = {
@@ -477,7 +474,7 @@ const handleError = (error) => {
 // Check Auto1111 status periodically
 const checkAuto1111Status = async () => {
   try {
-    await apiService.getServerStatus();
+    await getServerStatus();
     auto1111Status.value = {
       color: 'success',
       icon: 'mdi-check-circle',
@@ -502,129 +499,73 @@ const getConfigSummary = (config) => {
   return parts.join(' • ');
 };
 
-const isGenerating = (config) => {
-  const jobId = activeJobs.value.get(config.name);
-  if (!jobId) return false;
+const queueCount = computed(() => queueState.value?.jobs?.length || 0);
+const isProcessing = computed(() => queueState.value?.jobs?.some(job => job.status === 'processing') || false);
 
-  const status = jobStatuses.value.get(jobId);
-  // Only show loading state when the job is actually processing
-  return status?.status === 'processing';
+const isGenerating = (config) => {
+  return queueState.value?.jobs?.some(job =>
+    job.config.name === config.name &&
+    (job.status === 'pending' || job.status === 'processing')
+  ) || false;
 };
 
 const queueGeneration = async (config) => {
   try {
-    const job = await generationService.queueGeneration(config);
-    activeJobs.value.set(config.name, job.id);
-    jobStatuses.value.set(job.id, job);
-    startPollingJob(job.id);
+    await generationService.queueGeneration(config);
   } catch (error) {
     console.error('Error queueing generation:', error);
-    // TODO: Show error notification
-  }
-};
-
-const pollInterval = ref(null);
-const pollJobs = async () => {
-  const jobIds = Array.from(jobStatuses.value.keys());
-  let hasActiveJobs = false;
-
-  for (const jobId of jobIds) {
-    try {
-      const status = await generationService.getJobStatus(jobId);
-
-      // If the job no longer exists on the server, remove it from our tracking
-      if (!status) {
-        jobStatuses.value.delete(jobId);
-        const configName = Array.from(activeJobs.value.entries())
-          .find(([_, id]) => id === jobId)?.[0];
-        if (configName) {
-          activeJobs.value.delete(configName);
-        }
-        continue;
-      }
-
-      jobStatuses.value.set(jobId, status);
-
-      if (['completed', 'failed'].includes(status.status)) {
-        // Remove the job from activeJobs immediately
-        const configName = Array.from(activeJobs.value.entries())
-          .find(([_, id]) => id === jobId)?.[0];
-        if (configName) {
-          activeJobs.value.delete(configName);
-        }
-
-        // If job completed successfully, add it to completedJobs
-        if (status.status === 'completed' && status.images?.length > 0) {
-          completedJobs.value.unshift(status);
-        }
-
-        // Remove the job from jobStatuses after a delay
-        setTimeout(() => {
-          jobStatuses.value.delete(jobId);
-        }, 5000); // Keep completed/failed jobs visible for 5 seconds
-      } else {
-        hasActiveJobs = true;
-      }
-    } catch (error) {
-      console.error('Error polling job status:', error);
-      // If we can't get the status, assume the job is gone
-      jobStatuses.value.delete(jobId);
-      const configName = Array.from(activeJobs.value.entries())
-        .find(([_, id]) => id === jobId)?.[0];
-      if (configName) {
-        activeJobs.value.delete(configName);
-      }
-    }
-  }
-
-  // If no more active jobs, stop polling
-  if (!hasActiveJobs && pollInterval.value) {
-    clearInterval(pollInterval.value);
-    pollInterval.value = null;
-  }
-};
-
-const startPollingJob = (jobId) => {
-  // Start polling if not already polling
-  if (!pollInterval.value) {
-    pollInterval.value = setInterval(pollJobs, 1000);
   }
 };
 
 const showQueue = ref(false);
-const queueCount = computed(() => jobStatuses.value.size);
-const isProcessing = computed(() => Array.from(jobStatuses.value.values()).some(job => job.status === 'processing'));
+const queueState = ref({
+  jobs: [],
+  completedJobs: []
+});
 
-const sortedJobs = computed(() => {
-  return Array.from(jobStatuses.value.values()).sort((a, b) => {
-    // Processing jobs first
-    if (a.status === 'processing' && b.status !== 'processing') return -1;
-    if (b.status === 'processing' && a.status !== 'processing') return 1;
-
-    // Then pending jobs by timestamp
-    if (a.status === 'pending' && b.status === 'pending') {
-      return new Date(a.timestamp) - new Date(b.timestamp);
+const pollQueueStatus = async () => {
+  try {
+    const status = await generationService.getQueueStatus();
+    if (!status) {
+      console.warn('Received empty queue status');
+      return;
     }
 
-    // Then completed/failed jobs by timestamp, newest first
-    return new Date(b.timestamp) - new Date(a.timestamp);
-  });
-});
+    // Check if the response is HTML (incorrect response)
+    if (typeof status === 'string' && status.includes('<!DOCTYPE html>')) {
+      console.error('Received HTML instead of JSON from queue status endpoint');
+      return;
+    }
+
+    queueState.value = status;
+
+    // Update completedJobs with any new completed jobs
+    const newCompleted = (status.jobs || []).filter(job =>
+      job.status === 'completed' &&
+      !completedJobs.value.some(existing => existing.id === job.id)
+    );
+
+    if (newCompleted.length > 0) {
+      completedJobs.value.unshift(...newCompleted);
+    }
+  } catch (error) {
+    console.error('Error polling queue status:', error);
+  }
+};
+
+const sortedJobs = computed(() => queueState.value?.jobs || []);
 
 const getQueuePosition = (job) => {
   if (job.status !== 'pending') return '';
-  const pending = Array.from(jobStatuses.value.values())
-    .filter(j => j.status === 'pending')
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const pending = queueState.value?.jobs?.filter(j => j.status === 'pending') || [];
   return pending.findIndex(j => j.id === job.id) + 1;
 };
 
 const getQueueProgress = (job) => {
   if (job.status !== 'pending') return 0;
   const position = getQueuePosition(job);
-  const total = Array.from(jobStatuses.value.values())
-    .filter(j => j.status === 'pending').length;
-  return ((total - position + 1) / total) * 100;
+  const total = queueState.value?.jobs?.filter(j => j.status === 'pending')?.length || 0;
+  return total > 0 ? ((total - position + 1) / total) * 100 : 0;
 };
 
 const getJobStatus = (job) => {
@@ -680,10 +621,6 @@ async function handleUpscale(image) {
     // Queue the upscale job
     const job = await generationService.queueUpscale(image.path, upscaleConfig);
 
-    // Add to job tracking
-    jobStatuses.value.set(job.id, job);
-    startPollingJob(job.id);
-
     // Close the lightbox if open
     imageDialog.value.show = false;
   } catch (error) {
@@ -696,18 +633,29 @@ async function handleUpscale(image) {
 }
 
 onMounted(async () => {
-  // Initial check
-  checkAuto1111Status();
+  try {
+    // Initial checks
+    await checkAuto1111Status();
 
-  // Check every 30 seconds
-  setInterval(checkAuto1111Status, 30000);
+    // Load configs
+    await configStore.fetchConfigs();
 
-  // Load configs
-  await configStore.fetchConfigs();
+    // Initial queue status check - do this once at startup
+    try {
+      const queueStatus = await generationService.getQueueStatus();
+      if (queueStatus && typeof queueStatus !== 'string') {
+        queueState.value = queueStatus;
+      }
+    } catch (error) {
+      console.error('Initial queue status check failed:', error);
+    }
 
-  // Initial queue status check
-  const queueStatus = await generationService.getQueueStatus();
-  // TODO: Handle existing queue status
+    // Set up polling intervals with more reasonable frequencies
+    setInterval(checkAuto1111Status, 30000); // Every 30 seconds is fine for server status
+    setInterval(pollQueueStatus, 5000);      // Every 5 seconds for queue status
+  } catch (error) {
+    console.error('Error during initialization:', error);
+  }
 });
 </script>
 

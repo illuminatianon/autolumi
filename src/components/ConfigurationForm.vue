@@ -198,7 +198,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
-import apiService from '@/services/api';
+import {
+  getAvailableModels,
+  getAvailableSamplers,
+  getUpscalers,
+  getLatentUpscaleModes,
+  getDefaultConfig
+} from '@/services/api';
 
 const props = defineProps({
   config: {
@@ -281,7 +287,7 @@ const handleCancel = () => {
 
 const loadModels = async () => {
   try {
-    const response = await apiService.getAvailableModels();
+    const response = await getAvailableModels();
     models.value = response.map(m => ({
       title: m.model_name,
       model_name: m.model_name
@@ -293,7 +299,7 @@ const loadModels = async () => {
 
 const loadSamplers = async () => {
   try {
-    const response = await apiService.getAvailableSamplers();
+    const response = await getAvailableSamplers();
     samplers.value = response.map(s => s.name);
   } catch (error) {
     console.error('Error loading samplers:', error);
@@ -303,26 +309,26 @@ const loadSamplers = async () => {
 const loadUpscalers = async () => {
   try {
     // Get both regular and latent upscalers
-    const [upscalers, latentModes] = await Promise.all([
-      apiService.getUpscalers(),
-      apiService.getLatentUpscaleModes()
+    const [upscalerResponse, latentModes] = await Promise.all([
+      getUpscalers(),
+      getLatentUpscaleModes()
     ]);
 
     // Regular upscalers for the upscale job
-    upscalers.value = upscalers;
+    upscalers.value = upscalerResponse;
 
     // Combine both types for hires.fix upscaler selection
     hrUpscalers.value = [
       ...latentModes.map(m => m.name), // Extract names from latent modes
-      ...upscalers.map(u => u.name)
+      ...upscalerResponse.map(u => u.name)
     ];
 
     // Set default if none selected
     if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
       formData.value.hr_upscaler = hrUpscalers.value[0];
     }
-    if (!formData.value.upscale_upscaler && upscalers.length > 0) {
-      formData.value.upscale_upscaler = upscalers[0].name;
+    if (!formData.value.upscale_upscaler && upscalerResponse.length > 0) {
+      formData.value.upscale_upscaler = upscalerResponse[0].name;
     }
   } catch (error) {
     console.error('Error loading upscalers:', error);
@@ -339,7 +345,7 @@ onMounted(async () => {
   loading.value = true;
   try {
     // Get defaults from backend
-    const defaults = await apiService.getDefaultConfig();
+    const defaults = await getDefaultConfig();
     defaultForm.value = {
       name: '',
       model: '',

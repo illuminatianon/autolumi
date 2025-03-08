@@ -1,71 +1,85 @@
 import axios from 'axios';
 
-class ApiService {
-  constructor() {
-    this.client = axios.create({
-      baseURL: 'http://localhost:3001/api'
-    });
+// Create an axios instance with default config
+const apiService = axios.create({
+  baseURL: 'http://localhost:3001/api',
+  timeout: 30000, // 30 second timeout
+  headers: {
+    'Content-Type': 'application/json'
   }
+});
 
-  // Generation
-  async queueGeneration(config) {
-    const response = await this.client.post('/generation/txt2img', config);
-    return response.data;
-  }
-
-  async queueUpscale(imagePath, config) {
-    const response = await this.client.post('/generation/upscale', {
-      imagePath,
-      config
-    });
-    return response.data;
-  }
-
-  async getJobStatus(jobId) {
-    const response = await this.client.get(`/generation/job/${jobId}`);
-    return response.data;
-  }
-
-  async getQueueStatus() {
-    const response = await this.client.get('/generation/queue');
-    return response.data;
-  }
-
-  // Config/Status
-  async getAvailableModels() {
-    const response = await this.client.get('/config/models');
-    return response.data;
-  }
-
-  async getAvailableSamplers() {
-    const response = await this.client.get('/config/samplers');
-    return response.data;
-  }
-
-  async getAvailableUpscalers() {
-    const response = await this.client.get('/config/upscalers');
-    return response.data;
-  }
-
-  async getServerStatus() {
-    const response = await this.client.get('/config/health');
-    return response.data;
-  }
-
-  async getDefaultConfig() {
-    const response = await this.client.get('/config/defaults');
-    return response.data;
-  }
-
-  async getUpscalers() {
-    const response = await this.client.get('/config/upscalers');
-    return response.data;
-  }
-
-  async getLatentUpscaleModes() {
-    const response = await this.client.get('/config/latent-upscale-modes');
-    return response.data;
-  }
+// Generation
+async function queueGeneration(config) {
+  const response = await apiService.post('/generation/txt2img', config);
+  return response.data;
 }
 
-export default new ApiService();
+async function queueUpscale(imagePath, config) {
+  const response = await apiService.post('/generation/upscale', {
+    imagePath,
+    config
+  });
+  return response.data;
+}
+
+async function getJobStatus(jobId) {
+  const response = await apiService.get(`/generation/job/${jobId}`);
+  return response.data;
+}
+
+async function getQueueStatus() {
+  const response = await apiService.get('/generation/queue');
+  return response.data;
+}
+
+// Config/Status
+async function getAvailableModels() {
+  const response = await apiService.get('/config/models');
+  return response.data;
+}
+
+async function getAvailableSamplers() {
+  const response = await apiService.get('/config/samplers');
+  return response.data;
+}
+
+async function getAvailableUpscalers() {
+  const response = await apiService.get('/config/upscalers');
+  return response.data;
+}
+
+async function getServerStatus() {
+  const response = await apiService.get('/config/health');
+  return response.data;
+}
+
+async function getDefaultConfig() {
+  const response = await apiService.get('/config/defaults');
+  return response.data;
+}
+
+async function getUpscalers() {
+  const response = await apiService.get('/config/upscalers');
+  return response.data;
+}
+
+async function getLatentUpscaleModes() {
+  const response = await apiService.get('/config/latent-upscale-modes');
+  return response.data;
+}
+
+export {
+  apiService,
+  queueGeneration,
+  queueUpscale,
+  getJobStatus,
+  getQueueStatus,
+  getAvailableModels,
+  getAvailableSamplers,
+  getAvailableUpscalers,
+  getServerStatus,
+  getDefaultConfig,
+  getUpscalers,
+  getLatentUpscaleModes
+};

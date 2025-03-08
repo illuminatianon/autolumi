@@ -1,35 +1,13 @@
-import axios from 'axios';
+import { queueGeneration, queueUpscale, getJobStatus, getQueueStatus } from './api';
 
 class GenerationService {
-  constructor() {
-    this.client = axios.create({
-      baseURL: 'http://localhost:3001/api/generation'
-    });
-  }
-
   async queueGeneration(config) {
-    try {
-      // Ensure hires.fix parameters are properly set
-      const generationConfig = {
-        ...config,
-        enable_hr: true,
-        hr_second_pass_steps: config.hr_second_pass_steps || config.steps,
-        hr_upscaler: config.hr_upscaler || 'R-ESRGAN 4x+',
-        denoising_strength: config.denoising_strength ?? 0.7,
-      };
-
-      const response = await this.client.post('/txt2img', generationConfig);
-      return response.data;
-    } catch (error) {
-      console.error('Error queueing generation:', error);
-      throw error;
-    }
+    return await queueGeneration(config);
   }
 
   async getJobStatus(jobId) {
     try {
-      const response = await this.client.get(`/job/${jobId}`);
-      return response.data;
+      return await getJobStatus(jobId);
     } catch (error) {
       console.error('Error getting job status:', error);
       throw error;
@@ -38,46 +16,25 @@ class GenerationService {
 
   async getQueueStatus() {
     try {
-      const response = await this.client.get('/queue');
-      return response.data;
+      const response = await getQueueStatus();
+
+      // Validate that we got a proper JSON response
+      if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
+        console.error('Received HTML instead of JSON from queue status endpoint');
+        return { jobs: [], completedJobs: [] }; // Return empty state
+      }
+
+      return response;
     } catch (error) {
       console.error('Error getting queue status:', error);
-      throw error;
+      // Return a default state instead of throwing
+      return { jobs: [], completedJobs: [] };
     }
   }
 
   async queueUpscale(imagePath, config) {
-    try {
-      const response = await this.client.post('/upscale', {
-        imagePath,
-        config,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error queueing upscale:', error);
-      throw error;
-    }
+    return await queueUpscale(imagePath, config);
   }
 }
 
 export default new GenerationService();
-
-export async function upscaleImage(imagePath, config) {
-  const response = await fetch('/api/generation/upscale', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      imagePath,
-      config,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to upscale image');
-  }
-
-  return response.json();
-}
