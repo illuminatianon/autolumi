@@ -38,7 +38,20 @@ export const DEFAULT_TXT2IMG_PARAMS = {
   width: 512,
   height: 512,
   batch_size: 1,
-  save_images: false
+  save_images: false,
+  prompt: '',
+  negative_prompt: '',
+  // Hires.fix defaults
+  hr_resize_x: 0,
+  hr_resize_y: 0,
+  hr_denoising_strength: 0.7,
+  hr_second_pass_steps: 20,
+  hr_upscaler: '',  // Will be set from available upscalers
+  // Upscale defaults
+  upscale_tile_overlap: 64,
+  upscale_scale_factor: 2.5,
+  upscale_upscaler: '',  // Will be set from available upscalers
+  upscale_denoising_strength: 0.15,
 };
 
 export const DEFAULT_IMG2IMG_PARAMS = {

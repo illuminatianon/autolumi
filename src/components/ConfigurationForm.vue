@@ -216,38 +216,12 @@ const loading = ref(false);
 const isEditing = computed(() => !!props.config);
 const samplers = ref([]);
 const models = ref([]);
-const upscalers = ref([
-  'Latent',
-  'Latent (antialiased)',
-  'Latent (bicubic)',
-  'Latent (bicubic antialiased)',
-  'Latent (nearest)',
-  'Latent (nearest-exact)',
-  'None',
-  'Lanczos',
-  'Nearest',
-  'ESRGAN_4x',
-  'R-ESRGAN 4x+',
-  'R-ESRGAN 4x+ Anime6B'
-]);
+const upscalers = ref([]);
 
 const defaultForm = {
   name: '',
   model: '',
-  ...DEFAULT_TXT2IMG_PARAMS,
-  prompt: '',
-  negative_prompt: '',
-  // Hires.fix defaults
-  hr_resize_x: 0,
-  hr_resize_y: 0,
-  hr_denoising_strength: 0.7,
-  hr_second_pass_steps: 20,
-  hr_upscaler: 'R-ESRGAN 4x+',
-  // Upscale defaults
-  upscale_tile_overlap: 64,
-  upscale_scale_factor: 2.5,
-  upscale_upscaler: 'R-ESRGAN 4x+',
-  upscale_denoising_strength: 0.15,
+  ...DEFAULT_TXT2IMG_PARAMS
 };
 
 const formData = ref({ ...defaultForm });
@@ -291,11 +265,7 @@ const handleCancel = () => {
 
 const loadModels = async () => {
   try {
-    const response = await auto1111Service.client.get('/sdapi/v1/models');
-    models.value = response.data.map(m => ({
-      title: m.model_name,
-      model_name: m.model_name
-    }));
+    models.value = auto1111Service.getModels();
   } catch (error) {
     console.error('Error loading models:', error);
   }
@@ -303,8 +273,7 @@ const loadModels = async () => {
 
 const loadSamplers = async () => {
   try {
-    const response = await auto1111Service.client.get('/sdapi/v1/samplers');
-    samplers.value = response.data.map(s => s.name);
+    samplers.value = auto1111Service.getSamplers();
   } catch (error) {
     console.error('Error loading samplers:', error);
   }
@@ -312,14 +281,14 @@ const loadSamplers = async () => {
 
 const loadUpscalers = async () => {
   try {
-    const response = await auto1111Service.client.get('/sdapi/v1/upscalers');
-    upscalers.value = response.data.map(u => u.name);
+    upscalers.value = auto1111Service.getUpscalers();
 
-    // Set default upscaler if none selected
+    // Set defaults if needed
     if (!formData.value.hr_upscaler && upscalers.value.length > 0) {
-      // Prefer R-ESRGAN 4x+ if available, otherwise use first upscaler
-      const defaultUpscaler = upscalers.value.find(u => u === 'R-ESRGAN 4x+') || upscalers.value[0];
-      formData.value.hr_upscaler = defaultUpscaler;
+      formData.value.hr_upscaler = upscalers.value[0];
+    }
+    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
+      formData.value.upscale_upscaler = upscalers.value[0];
     }
   } catch (error) {
     console.error('Error loading upscalers:', error);
@@ -335,11 +304,9 @@ onMounted(async () => {
   loading.value = true;
   try {
     await auto1111Service.initialize();
-    await Promise.all([
-      loadModels(),
-      loadSamplers(),
-      loadUpscalers()
-    ]);
+    loadModels();
+    loadSamplers();
+    loadUpscalers();
   } catch (error) {
     emit('error', error);
   } finally {

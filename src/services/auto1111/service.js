@@ -4,23 +4,30 @@ import { DEFAULT_TXT2IMG_PARAMS, DEFAULT_IMG2IMG_PARAMS, DEFAULT_UPSCALE_PARAMS 
 class Auto1111Service {
   constructor() {
     this.client = axios.create({
-      baseURL: 'http://localhost:3001/api',
-      timeout: 300000 // 5 minutes
+      baseURL: 'http://127.0.0.1:7860'
     });
+    this.upscalers = [];
     this.samplers = [];
     this.models = [];
-    this.initialized = false;
   }
 
   async initialize() {
-    if (this.initialized) return;
-
     try {
-      const response = await this.client.post('/config/initialize');
-      this.samplers = response.data.samplers;
-      this.models = response.data.models;
-      this.initialized = true;
+      const [upscalersRes, samplersRes, modelsRes] = await Promise.all([
+        this.client.get('/sdapi/v1/upscalers'),
+        this.client.get('/sdapi/v1/samplers'),
+        this.client.get('/sdapi/v1/sd-models')
+      ]);
+
+      this.upscalers = upscalersRes.data.map(u => u.name);
+      this.samplers = samplersRes.data.map(s => s.name);
+      this.models = modelsRes.data.map(m => ({
+        title: m.model_name,
+        model_name: m.model_name
+      }));
+
       return {
+        upscalers: this.upscalers,
         samplers: this.samplers,
         models: this.models
       };
@@ -28,6 +35,18 @@ class Auto1111Service {
       console.error('Failed to initialize Auto1111 service:', error);
       throw error;
     }
+  }
+
+  getUpscalers() {
+    return this.upscalers;
+  }
+
+  getSamplers() {
+    return this.samplers;
+  }
+
+  getModels() {
+    return this.models;
   }
 
   async setModel(model_name) {
@@ -58,14 +77,6 @@ class Auto1111Service {
       }
     });
     return response.data;
-  }
-
-  getAvailableSamplers() {
-    return this.samplers;
-  }
-
-  getAvailableModels() {
-    return this.models;
   }
 
   async getJobStatus(jobId) {
