@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { getPngMetadata } from './pngMetadata.js';  // We'll need to create this
+import { getPngMetadata } from './pngMetadata.js';
+import { PNG } from 'pngjs';
 
 export class QueueManager {
   constructor(auto1111Client, imageManager) {
@@ -203,4 +204,35 @@ export class QueueManager {
     // Save images and update job
     job.images = await this.imageManager.saveImages(job.config.name, result.images);
   }
+}
+
+async function extractPngMetadata(buffer) {
+  return new Promise((resolve, reject) => {
+    const png = new PNG();
+    png.parse(buffer, (error, data) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      try {
+        const parameters = png.text.parameters;
+        if (!parameters) {
+          resolve({ prompt: "", negative_prompt: "" });
+          return;
+        }
+
+        const parts = parameters.split('\nNegative prompt: ');
+        const prompt = parts[0].trim();
+        const negative_prompt = parts[1] ? parts[1].split('\n')[0].trim() : "";
+
+        resolve({
+          prompt,
+          negative_prompt
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
