@@ -69,22 +69,18 @@ export class Auto1111Client {
 
   async img2img(params) {
     try {
-      console.log('Sending img2img request with params:', {
+      console.log('Sending img2img request:', {
         ...params,
-        init_images: params.init_images ? [`${params.init_images[0].slice(0, 50)}...`] : undefined // Truncate base64 for logging
+        init_images: params.init_images ? ['<base64 data>'] : undefined,
+        script_args: params.script_args
       });
-
       const response = await this.client.post('/sdapi/v1/img2img', params);
       return response.data;
     } catch (error) {
       console.error('Auto1111 img2img error:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status,
-        config: {
-          url: error.config?.url,
-          params: error.config?.data ? JSON.parse(error.config.data) : undefined
-        }
+        status: error.response?.status
       });
       throw new Error(`Failed to upscale image: ${error.message}`);
     }
@@ -100,8 +96,13 @@ export class Auto1111Client {
   }
 
   async getUpscalers() {
-    const response = await this.client.get('/sdapi/v1/upscalers');
-    return response.data;
+    try {
+      const response = await this.client.get('/sdapi/v1/upscalers');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get upscalers:', error);
+      throw error;
+    }
   }
 
   getAvailableSamplers() {

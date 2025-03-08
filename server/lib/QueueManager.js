@@ -120,6 +120,23 @@ export class QueueManager {
 
   async processUpscaleJob(job) {
     try {
+      // Get available upscalers first
+      const upscalers = await this.auto1111.getUpscalers();
+      console.log('Available upscalers:', upscalers.map(u => u.name));
+
+      const requestedUpscaler = job.config.upscale_upscaler;
+      if (!requestedUpscaler) {
+        throw new Error('No upscaler specified in job config');
+      }
+
+      console.log('Requested upscaler:', requestedUpscaler);
+
+      // Verify upscaler exists
+      const validUpscaler = upscalers.find(u => u.name === requestedUpscaler);
+      if (!validUpscaler) {
+        throw new Error(`Requested upscaler "${requestedUpscaler}" not found. Available options: ${upscalers.map(u => u.name).join(', ')}`);
+      }
+
       // Read the image file
       const imageBuffer = await fs.promises.readFile(job.imagePath);
       const base64Image = imageBuffer.toString('base64');
@@ -129,26 +146,25 @@ export class QueueManager {
         init_images: [base64Image],
         script_name: "SD upscale",
         script_args: [
-          null, // First argument is always null for SD upscale
+          null,
           job.config.upscale_tile_overlap || 64,
-          job.config.upscale_upscaler || "R-ESRGAN 4x+",
+          requestedUpscaler, // Use the validated upscaler name
           job.config.upscale_scale_factor || 2.5,
         ],
         denoising_strength: job.config.upscale_denoising_strength || 0.15,
-        // Add other required img2img parameters
-        prompt: "", // Empty prompt for upscale
+        prompt: "",
         negative_prompt: "",
         steps: 20,
         cfg_scale: 7,
-        width: 512, // These will be overridden by the upscale script
+        width: 512,
         height: 512,
         restore_faces: false,
         sampler_name: "Euler a"
       };
 
-      console.log('Processing upscale job with config:', {
+      console.log('Processing upscale with config:', {
         ...upscaleRequest,
-        init_images: ['<base64 image data>'] // Don't log the full base64
+        init_images: ['<base64 data>']
       });
 
       // Process the upscale

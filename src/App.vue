@@ -681,10 +681,10 @@ async function handleUpscale(image) {
 
     // Get the upscale config from the original generation config
     const upscaleConfig = {
-      upscale_tile_overlap: image.config.upscale_tile_overlap || 64,
-      upscale_upscaler: image.config.upscale_upscaler || 'R-ESRGAN 4x+',
-      upscale_scale_factor: image.config.upscale_scale_factor || 2.5,
-      upscale_denoising_strength: image.config.upscale_denoising_strength || 0.15,
+      upscale_tile_overlap: image.config.upscale_tile_overlap,
+      upscale_upscaler: image.config.upscale_upscaler,
+      upscale_scale_factor: image.config.upscale_scale_factor,
+      upscale_denoising_strength: image.config.upscale_denoising_strength,
     };
 
     // Queue the upscale job
