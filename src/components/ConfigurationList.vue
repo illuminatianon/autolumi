@@ -104,10 +104,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
+import { useWebSocketStore } from '@/stores/websocket';
 
 const configStore = useConfigStore();
 const generationStore = useGenerationStore();
@@ -119,8 +120,13 @@ const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'dele
 
 onMounted(async () => {
   try {
+    const wsStore = useWebSocketStore();
+    await wsStore.ensureConnection();
+    console.log('Fetching configs...');
     await configStore.fetchConfigs();
+    console.log('Fetched configs:', configs.value);
   } catch (error) {
+    console.error('Error fetching configs:', error);
     emit('error', error);
   }
 });
@@ -128,6 +134,7 @@ onMounted(async () => {
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 
 const getConfigStatus = (configId) => {
+  if (!isConfigActive(configId)) return '';
   const config = activeConfigs.value.get(configId);
   if (!config) return '';
   return `Runs: ${config.completedRuns} | Failures: ${config.failedRuns}`;

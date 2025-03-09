@@ -1,6 +1,8 @@
 import { ref } from 'vue';
 
 const WS_PORT = import.meta.env.PROD ? window.location.port : '3001';
+const CONNECTION_TIMEOUT = 5000;
+const REQUEST_TIMEOUT = 10000;
 
 export const wsState = ref({
   connected: false,
@@ -13,79 +15,47 @@ export const wsState = ref({
 class WebSocketService {
   constructor() {
     this.ws = null;
+    this.nextRequestId = 1;
     this.pendingRequests = new Map();
-    this.subscribers = new Map();
-    this.requestId = 0;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.isConnected = false;
+    this.connectionPromise = null;
+    this.subscribers = new Map(); // Add subscribers map
   }
 
-  subscribe(type, callback) {
-    if (!this.subscribers.has(type)) {
-      this.subscribers.set(type, new Set());
-    }
-    this.subscribers.get(type).add(callback);
-  }
+  getWebSocketUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    // Use the correct port and path
+    const port = WS_PORT || window.location.port;
+    const wsPath = '/ws';
 
-  unsubscribe(type, callback) {
-    if (this.subscribers.has(type)) {
-      this.subscribers.get(type).delete(callback);
-    }
-  }
-
-  notifySubscribers(type, data) {
-    if (this.subscribers.has(type)) {
-      this.subscribers.get(type).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error('Error in WebSocket subscriber callback:', error);
-        }
-      });
-    }
-  }
-
-  async waitForConnection(timeout = 5000) {
-    if (this.isConnected) return true;
-
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Connection timeout'));
-      }, timeout);
-
-      const checkConnection = () => {
-        if (this.isConnected) {
-          clearTimeout(timeoutId);
-          resolve(true);
-        } else if (this.ws?.readyState === WebSocket.CONNECTING) {
-          setTimeout(checkConnection, 100);
-        } else {
-          clearTimeout(timeoutId);
-          reject(new Error('Connection failed'));
-        }
-      };
-
-      checkConnection();
-    });
+    // Construct URL with port only if it exists
+    const portPart = port ? `:${port}` : '';
+    return `${protocol}//${host}${portPart}${wsPath}`;
   }
 
   async connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.isConnected = true;
-      return;
+    if (this.connectionPromise) {
+      return this.connectionPromise;
     }
 
-    return new Promise((resolve, reject) => {
+    this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = `${window.location.hostname}:${WS_PORT}`;
-        const wsUrl = `${protocol}//${host}/ws`;
+        console.log('Connecting to WebSocket...');
+        this.ws = new WebSocket(this.getWebSocketUrl());
 
-        console.log('Connecting to WebSocket at:', wsUrl);
-        this.ws = new WebSocket(wsUrl);
+        const connectionTimeout = setTimeout(() => {
+          if (this.ws.readyState !== WebSocket.OPEN) {
+            this.ws.close();
+            reject(new Error('WebSocket connection timeout'));
+          }
+        }, CONNECTION_TIMEOUT);
 
         this.ws.onopen = () => {
           console.log('WebSocket connection established');
+          clearTimeout(connectionTimeout);
           this.reconnectAttempts = 0;
           this.isConnected = true;
           wsState.value.connected = true;
@@ -96,38 +66,39 @@ class WebSocketService {
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error);
           wsState.value.connected = false;
+          this.isConnected = false;
+          clearTimeout(connectionTimeout);
           reject(error);
         };
 
         this.ws.onclose = () => {
-          console.log('WebSocket connection closed'); // Debug log
+          console.log('WebSocket connection closed');
           wsState.value.connected = false;
+          this.isConnected = false;
           this.handleDisconnect();
         };
-
-        // Add connection timeout
-        setTimeout(() => {
-          if (this.ws.readyState !== WebSocket.OPEN) {
-            this.ws.close();
-            reject(new Error('WebSocket connection timeout'));
-          }
-        }, 5000);
 
       } catch (error) {
         console.error('WebSocket connection error:', error);
         reject(error);
       }
+    }).finally(() => {
+      this.connectionPromise = null;
     });
+
+    return this.connectionPromise;
   }
 
   setupMessageHandler() {
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        console.log('Received WebSocket message:', message);
 
-        // Handle request responses
+        // Handle request-response messages
         if (message.requestId && this.pendingRequests.has(message.requestId)) {
-          const { resolve, reject } = this.pendingRequests.get(message.requestId);
+          const { resolve, reject, timeout } = this.pendingRequests.get(message.requestId);
+          clearTimeout(timeout);
           this.pendingRequests.delete(message.requestId);
 
           if (message.type === 'error') {
@@ -136,10 +107,16 @@ class WebSocketService {
             resolve(message.data);
           }
         }
-        // Handle broadcasts
-        else if (message.type) {
-          this.notifySubscribers(message.type, message.data);
-        }
+
+        // Handle subscribed messages
+        const subscribers = this.subscribers.get(message.type) || [];
+        subscribers.forEach(callback => {
+          try {
+            callback(message.data);
+          } catch (error) {
+            console.error('Error in subscriber callback:', error);
+          }
+        });
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
       }
@@ -147,34 +124,29 @@ class WebSocketService {
   }
 
   async sendRequest(type, data = null) {
-    await this.waitForConnection();
-
-    const requestId = this.nextRequestId++;
+    if (!this.isConnected) {
+      await this.connect();
+    }
 
     return new Promise((resolve, reject) => {
+      const requestId = this.nextRequestId++;
       const timeoutId = setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           this.pendingRequests.delete(requestId);
           reject(new Error('WebSocket request timed out'));
         }
-      }, 30000);
+      }, REQUEST_TIMEOUT);
 
-      this.pendingRequests.set(requestId, {
-        resolve: (data) => {
-          clearTimeout(timeoutId);
-          resolve(data);
-        },
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
-      });
+      this.pendingRequests.set(requestId, { resolve, reject, timeout: timeoutId });
 
-      this.ws.send(JSON.stringify({
+      const message = {
         type,
         requestId,
         data,
-      }));
+      };
+
+      console.log('Sending WebSocket request:', message);
+      this.ws.send(JSON.stringify(message));
     });
   }
 
@@ -183,18 +155,39 @@ class WebSocketService {
   }
 
   handleDisconnect() {
-    for (const { reject } of this.pendingRequests.values()) {
+    // Clear all pending requests
+    for (const [requestId, { reject, timeout }] of this.pendingRequests.entries()) {
+      clearTimeout(timeout);
       reject(new Error('WebSocket disconnected'));
+      this.pendingRequests.delete(requestId);
     }
-    this.pendingRequests.clear();
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 5000);
-      console.log(`Attempting to reconnect in ${delay}ms...`); // Debug log
+      console.log(`Attempting to reconnect in ${delay}ms... (Attempt ${this.reconnectAttempts})`);
       setTimeout(() => {
         this.connect().catch(console.error);
       }, delay);
+    } else {
+      console.error('Max reconnection attempts reached');
+    }
+  }
+
+  subscribe(type, callback) {
+    if (!this.subscribers.has(type)) {
+      this.subscribers.set(type, new Set());
+    }
+    this.subscribers.get(type).add(callback);
+  }
+
+  unsubscribe(type, callback) {
+    const subscribers = this.subscribers.get(type);
+    if (subscribers) {
+      subscribers.delete(callback);
+      if (subscribers.size === 0) {
+        this.subscribers.delete(type);
+      }
     }
   }
 }

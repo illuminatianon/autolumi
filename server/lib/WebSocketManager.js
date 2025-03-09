@@ -11,6 +11,15 @@ export class WebSocketManager {
     this.wss = new WebSocketServer({
       server,
       path: '/ws',
+      // Add error handling for the server
+      verifyClient: (info, cb) => {
+        // Optional: Add any verification logic here
+        cb(true);
+      },
+    });
+
+    this.wss.on('error', (error) => {
+      logger.error('WebSocket server error:', error);
     });
 
     this.wss.on('connection', (ws, request) => {
@@ -33,6 +42,11 @@ export class WebSocketManager {
       ws.on('close', () => {
         this.clients.delete(ws);
         logger.info('Client disconnected from WebSocket');
+      });
+
+      ws.on('error', (error) => {
+        logger.error('WebSocket client error:', error);
+        this.clients.delete(ws);
       });
     });
   }
