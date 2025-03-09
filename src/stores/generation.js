@@ -1,27 +1,18 @@
 import { defineStore } from 'pinia';
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useWebSocketStore } from './websocket';
 
 export const useGenerationStore = defineStore('generation', () => {
-  const wsStore = useWebSocketStore();
   const activeConfigs = ref(new Map());
-
-  const isConfigActive = (configId) => activeConfigs.value.has(configId);
-
-  const runningConfigs = computed(() => {
-    return Array.from(activeConfigs.value.values());
-  });
+  const isProcessing = ref(false);
+  const wsStore = useWebSocketStore();
 
   async function startConfig(config) {
     try {
-      const response = await wsStore.sendRequest('startConfig', { config });
-      activeConfigs.value.set(config.id, {
-        ...config,
-        completedRuns: 0,
-        failedRuns: 0,
-        status: 'active',
+      await wsStore.sendRequest('startConfig', {
+        id: config.id,
+        config: config,
       });
-      return response;
     } catch (error) {
       console.error('Failed to start config:', error);
       throw error;
@@ -38,33 +29,26 @@ export const useGenerationStore = defineStore('generation', () => {
     }
   }
 
-  // Handle WebSocket updates
-  const handleConfigUpdate = (data) => {
-    const { configId, status, completedRuns, failedRuns } = data;
-    if (activeConfigs.value.has(configId)) {
-      const config = activeConfigs.value.get(configId);
-      activeConfigs.value.set(configId, {
-        ...config,
-        status,
-        completedRuns,
-        failedRuns,
-      });
-    }
-  };
+  function handleConfigUpdate(configEntry) {
+    activeConfigs.value.set(configEntry.id, {
+      ...configEntry,
+      config: configEntry.config,
+    });
+  }
 
-  // Subscribe to updates
+  function isConfigActive(configId) {
+    return activeConfigs.value.has(configId);
+  }
+
+  // Setup WebSocket subscription using the correct methods
   wsStore.onMessage('configUpdate', handleConfigUpdate);
-
-  // Cleanup subscription on store destruction
-  onUnmounted(() => {
-    wsStore.offMessage('configUpdate', handleConfigUpdate);
-  });
 
   return {
     activeConfigs,
-    runningConfigs,
-    isConfigActive,
+    isProcessing,
     startConfig,
     stopConfig,
+    handleConfigUpdate,
+    isConfigActive,
   };
 });

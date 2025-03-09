@@ -29,64 +29,38 @@
         <v-list-item
           v-for="config in configs"
           :key="config.id"
-          :active="isConfigActive(config.id)"
+          :title="config.name"
+          :subtitle="config.prompt"
         >
-          <template #prepend>
-            <v-btn
-              :icon="isConfigActive(config.id) ? 'mdi-pause' : 'mdi-play'"
-              :color="isConfigActive(config.id) ? 'primary' : 'success'"
-              size="small"
-              variant="text"
-              @click="toggleConfig(config)"
-            />
-          </template>
-
-          <v-list-item-title>{{ config.name }}</v-list-item-title>
-          <v-list-item-subtitle>
-            {{ config.model }} {{ config.hr_resize_x }}x{{ config.hr_resize_y }}
-            <span
-              v-if="getConfigStatus(config.id)"
-              class="text-medium-emphasis"
-            >
-              | {{ getConfigStatus(config.id) }}
-            </span>
-          </v-list-item-subtitle>
           <template #append>
-            <v-menu>
-              <template #activator="{ props }">
-                <v-btn
-                  icon="mdi-dots-vertical"
-                  variant="text"
-                  v-bind="props"
-                />
-              </template>
-
-              <v-list>
-                <v-list-item
-                  prepend-icon="mdi-pencil"
-                  @click="$emit('edit-config', config)"
-                >
-                  Edit
-                </v-list-item>
-                <v-list-item
-                  prepend-icon="mdi-content-copy"
-                  @click="$emit('duplicate-config', config)"
-                >
-                  Duplicate
-                </v-list-item>
-                <v-list-item
-                  prepend-icon="mdi-delete"
-                  color="error"
-                  @click="$emit('delete-config', config)"
-                >
-                  Delete
-                </v-list-item>
-              </v-list>
-            </v-menu>
+            <v-btn-group>
+              <v-btn
+                icon="mdi-play"
+                :color="isConfigActive(config.id) ? 'error' : 'success'"
+                @click="toggleConfig(config)"
+              />
+              <v-btn
+                icon="mdi-pencil"
+                @click="$emit('edit-config', config)"
+              />
+              <v-btn
+                icon="mdi-content-copy"
+                @click="$emit('duplicate-config', config)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                @click="$emit('delete-config', config)"
+              />
+            </v-btn-group>
           </template>
-
           <template #subtitle>
-            <div v-if="isConfigActive(config.id)">
+            <div class="text-caption">
+              {{ config.prompt }}
+            </div>
+            <div
+              v-if="isConfigActive(config.id)"
+              class="text-caption text-primary"
+            >
               {{ getConfigStatus(config.id) }}
             </div>
           </template>

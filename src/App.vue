@@ -71,6 +71,7 @@ const allImages = computed(() => {
       images.push({
         id: `${job.id}_${i}`,
         path: job.images[i],
+        // Access config properties directly without extra nesting
         jobName: job.config.name,
         timestamp: job.timestamp,
         config: job.config,

@@ -130,8 +130,8 @@ function initializeWebSocketHandlers(webSocketManager, services) {
     services.configManager.addConfig(config),
   );
 
-  webSocketManager.registerHandler('updateConfig', ({ name, config }) =>
-    services.configManager.updateConfig({ ...config, name }),
+  webSocketManager.registerHandler('updateConfig', (config) =>
+    services.configManager.updateConfig(config),
   );
 
   webSocketManager.registerHandler('deleteConfig', ({ name }) =>
@@ -171,6 +171,12 @@ function initializeWebSocketHandlers(webSocketManager, services) {
 
 // Initialize WebSocket after creating the HTTP server
 webSocketManager.initialize(server);
+
+// Make sure the path matches the client
+app.use('/ws', (req, res) => {
+  res.status(400).json({ error: 'WebSocket endpoint - HTTP not supported' });
+});
+
 initializeWebSocketHandlers(webSocketManager, {
   auto1111: auto1111Client,
   configManager,

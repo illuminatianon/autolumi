@@ -43,6 +43,7 @@ export class QueueManager {
         this.queue.shift(); // Remove invalid config from queue
         return;
       }
+      logger.info('Proessing config: %o', configEntry);
 
       await this.processGeneration(configEntry);
 
@@ -119,7 +120,7 @@ export class QueueManager {
       configEntry.status = 'processing';
       this.broadcastConfigUpdate(configEntry);
 
-      // Set the model if specified
+      // Access the config directly without the extra nesting
       if (configEntry.config.model) {
         await this.auto1111.setModel(configEntry.config.model);
       }
@@ -129,7 +130,7 @@ export class QueueManager {
         ...configEntry.config,
       });
 
-      // Process and save images
+      // Process and save images using the correct config path
       const savedPaths = await this.imageManager.saveImages(
         configEntry.config.name,
         result.images,
@@ -151,6 +152,7 @@ export class QueueManager {
       logger.error('Error in generation:', {
         configId: configEntry.id,
         error: error.message,
+        config: configEntry.config, // Log the config structure for debugging
       });
 
       this.broadcastConfigUpdate(configEntry);

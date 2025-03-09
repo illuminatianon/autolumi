@@ -67,7 +67,12 @@ export class ImageManager {
       await fs.promises.writeFile(filePath, Buffer.from(imageData, 'base64'));
       return path.relative(this.outputDir, filePath);
     } catch (error) {
-      logger.error('Failed to save image:', error);
+      logger.error('Failed to save image: %o', {
+        error: error.message,
+        jobName,
+        stack: error.stack,
+        code: error.code,
+      });
       throw new Error(`Failed to save image for job ${jobName}: ${error.message}`);
     }
   }

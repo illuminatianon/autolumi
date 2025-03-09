@@ -102,7 +102,11 @@ export const useConfigStore = defineStore('config', {
         console.log('Received configurations:', configs);
 
         if (Array.isArray(configs)) {
-          this.configs = configs;
+          // Ensure each config has an id
+          this.configs = configs.map(config => ({
+            id: config.id || crypto.randomUUID(),
+            ...config,
+          }));
         } else {
           console.error('Received invalid configs format:', configs);
           this.configs = [];
@@ -121,7 +125,11 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        const newConfig = await wsStore.sendRequest('addConfig', config);
+        const configWithId = {
+          id: crypto.randomUUID(),
+          ...config,
+        };
+        const newConfig = await wsStore.sendRequest('addConfig', configWithId);
         this.configs.push(newConfig);
         return newConfig;
       } catch (error) {
@@ -137,10 +145,8 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        const updatedConfig = await wsStore.sendRequest('updateConfig', {
-          name: config.name,
-          config,
-        });
+        // Remove the extra nesting - just send the config directly
+        const updatedConfig = await wsStore.sendRequest('updateConfig', config);
         const index = this.configs.findIndex(c => c.name === config.name);
         if (index !== -1) {
           this.configs[index] = updatedConfig;
@@ -155,12 +161,12 @@ export const useConfigStore = defineStore('config', {
       }
     },
 
-    async deleteConfig(name) {
+    async deleteConfig(config) {
       const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        await wsStore.sendRequest('deleteConfig', { name });
-        const index = this.configs.findIndex(c => c.name === name);
+        await wsStore.sendRequest('deleteConfig', { name: config.name });
+        const index = this.configs.findIndex(c => c.id === config.id);
         if (index !== -1) {
           this.configs.splice(index, 1);
         }
