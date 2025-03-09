@@ -89,22 +89,13 @@ const generationStore = useGenerationStore();
 const { configs } = storeToRefs(configStore);
 const { activeConfigs } = storeToRefs(generationStore);
 
-const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config']);
-
-onMounted(async () => {
-  try {
-    await configStore.fetchConfigs();
-  } catch (error) {
-    console.error('Error fetching configs:', error);
-  }
-});
+const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config', 'error']);
 
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 
 const getConfigStatus = (configId) => {
   const config = activeConfigs.value.find(c => c.id === configId);
   if (!config) return '';
-
   return `Runs: ${config.completedRuns} | Failures: ${config.failedRuns}`;
 };
 
@@ -116,15 +107,7 @@ const toggleConfig = async (config) => {
       await generationStore.startConfig(config);
     }
   } catch (error) {
-    // Error handling is done in the store
+    emit('error', error);
   }
 };
-
-onMounted(() => {
-  generationStore.startPolling();
-});
-
-onUnmounted(() => {
-  generationStore.stopPolling();
-});
 </script>
