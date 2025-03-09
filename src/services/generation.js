@@ -1,5 +1,4 @@
 import { apiService } from './api';
-import logger from './logger';
 
 class GenerationService {
   async startContinuousGeneration(config) {
@@ -17,7 +16,7 @@ class GenerationService {
       const response = await apiService.get('/generation/queue');
       return response.data;
     } catch (error) {
-      logger.error('Error getting queue status:', error);
+      console.error('Error getting queue status:', error);
       return { activeConfigs: [], queueLength: 0 };
     }
   }
