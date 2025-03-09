@@ -30,7 +30,7 @@ export const useGenerationStore = defineStore('generation', () => {
   async function stopConfig(configId) {
     try {
       await wsStore.sendRequest('stopConfig', { configId });
-      activeConfigs.value.delete(configId);
+      // Don't remove immediately - wait for server confirmation via configUpdate
     } catch (error) {
       console.error('Failed to stop config:', error);
       throw error;
@@ -38,14 +38,23 @@ export const useGenerationStore = defineStore('generation', () => {
   }
 
   function handleConfigUpdate(configEntry) {
-    if (!configEntry) return;
+    if (!configEntry?.id) return;
+
+    // Ensure we have a valid config object
+    if (!configEntry.config) {
+      console.warn('Received config update without config object:', configEntry);
+      return;
+    }
 
     if (configEntry.status === 'stopped') {
       activeConfigs.value.delete(configEntry.id);
     } else {
       activeConfigs.value.set(configEntry.id, {
-        ...configEntry,
+        id: configEntry.id,
         config: configEntry.config,
+        status: configEntry.status || 'unknown',
+        completedRuns: configEntry.completedRuns || 0,
+        failedRuns: configEntry.failedRuns || 0,
       });
     }
 
@@ -57,7 +66,8 @@ export const useGenerationStore = defineStore('generation', () => {
   }
 
   const runningConfigs = computed(() => {
-    return Array.from(activeConfigs.value.values());
+    const configs = Array.from(activeConfigs.value.values());
+    return configs.filter(config => config.status !== 'stopped');
   });
 
   // Setup WebSocket message handling

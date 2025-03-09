@@ -82,6 +82,12 @@ export class QueueManager {
       throw new Error(`Config ${configId} not found`);
     }
 
+    const configEntry = this.activeConfigs.get(configId);
+    configEntry.status = 'stopped';
+
+    // Broadcast the stopped status before removing
+    this.broadcastConfigUpdate(configEntry);
+
     this.activeConfigs.delete(configId);
     const queueIndex = this.queue.indexOf(configId);
     if (queueIndex !== -1) {
@@ -161,6 +167,7 @@ export class QueueManager {
 
   broadcastConfigUpdate(configEntry) {
     this.webSocketManager.broadcastConfigUpdate(configEntry.id, {
+      id: configEntry.id,
       configId: configEntry.id,
       status: configEntry.status,
       completedRuns: configEntry.completedRuns,
@@ -168,6 +175,7 @@ export class QueueManager {
       lastRun: configEntry.lastRun,
       lastError: configEntry.lastError,
       lastImages: configEntry.lastImages,
+      config: configEntry.config,  // Include the full config
     });
   }
 }

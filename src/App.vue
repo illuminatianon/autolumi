@@ -52,9 +52,12 @@ const queueTooltipContent = computed(() => {
     return 'No active generations';
   }
 
-  return jobs.map(job =>
-    `${job.config.name}: ${job.status === 'processing' ? 'Generating' : 'Queued'}`,
-  ).join('\n');
+  return jobs.map(job => {
+    if (!job?.config?.name) {
+      return 'Unknown configuration';
+    }
+    return `${job.config.name}: ${job.status === 'processing' ? 'Generating' : 'Queued'}`;
+  }).join('\n');
 });
 
 const showSettings = ref(false);
