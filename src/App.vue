@@ -1,3 +1,218 @@
+<script setup>
+import { computed, onMounted, ref, onUnmounted } from 'vue';
+import { useConfigStore } from '@/stores/config';
+import { useGenerationStore } from '@/stores/generation';
+import { useWebSocketStore } from '@/stores/websocket';
+import { storeToRefs } from 'pinia';
+import ConfigurationForm from '@/components/ConfigurationForm.vue';
+import AppFooter from '@/components/AppFooter.vue';
+import GenerationQueue from '@/components/GenerationQueue.vue';
+import ConfigurationList from '@/components/ConfigurationList.vue';
+import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
+import { webSocketService } from '@/services/websocket';
+
+const configStore = useConfigStore();
+const generationStore = useGenerationStore();
+const wsStore = useWebSocketStore();
+
+// Use storeToRefs for reactive store properties
+const { configs } = storeToRefs(configStore);
+const { activeConfigs, isProcessing } = storeToRefs(generationStore);
+
+// Initialize other reactive refs
+const drawer = ref(false);
+const showQueue = ref(false);
+const configDialog = ref({
+  show: false,
+  config: null,
+});
+
+const auto1111Status = ref({
+  color: 'warning',
+  icon: 'mdi-cloud-question',
+  message: 'Checking connection...',
+});
+
+const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
+
+const queueStatusText = computed(() => {
+  const count = runningConfigs.value;
+  if (count === 0) return 'No active generations';
+  return `${count} generation${count > 1 ? 's' : ''} in progress`;
+});
+
+const showSettings = ref(false);
+const completedJobs = ref([]);
+
+const handleJobsCompleted = (newJobs) => {
+  completedJobs.value.unshift(...newJobs);
+};
+
+const allImages = computed(() => {
+  const images = [];
+  for (const job of completedJobs.value) {
+    for (let i = 0; i < job.images.length; i++) {
+      images.push({
+        id: `${job.id}_${i}`,
+        path: job.images[i],
+        jobName: job.config.name,
+        timestamp: job.timestamp,
+        config: job.config,
+        jobId: job.id,
+        index: i,
+      });
+    }
+  }
+  return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+});
+
+const showConfigDialog = (config = null) => {
+  configDialog.value = {
+    show: true,
+    config,
+  };
+};
+
+const handleConfigSave = async (config) => {
+  try {
+    if (configDialog.value.config) {
+      await configStore.updateConfig(config);
+    } else {
+      await configStore.addConfig(config);
+    }
+    configDialog.value.show = false;
+  } catch (error) {
+    // Error is already handled by the store
+  }
+};
+
+const deleteConfig = async (config) => {
+  if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
+    try {
+      await configStore.deleteConfig(config);
+    } catch (error) {
+      // Error is already handled by the store
+    }
+  }
+};
+
+const handleError = (error) => {
+  console.error('Error:', error);
+  // TODO: Add proper error notification here
+  // For now, you could use a simple alert or implement a snackbar
+};
+
+// Check Auto1111 status periodically
+const checkAuto1111Status = async () => {
+  try {
+    const status = await webSocketService.checkServerStatus();
+    auto1111Status.value = {
+      color: status.status === 'ok' ? 'success' : 'error',
+      icon: status.status === 'ok' ? 'mdi-check-circle' : 'mdi-alert-circle',
+      message: status.status === 'ok' ? 'Server is connected' : 'Server is not connected',
+    };
+  } catch (error) {
+    auto1111Status.value = {
+      color: 'error',
+      icon: 'mdi-alert-circle',
+      message: 'Server is not connected',
+    };
+    console.error('Server status check failed:', error);
+  }
+};
+
+const imageDialog = ref({
+  show: false,
+  image: null,
+});
+
+const showImageDetails = (image) => {
+  imageDialog.value = {
+    show: true,
+    image,
+  };
+};
+
+const selectedImage = ref(null);
+const isUpscaling = ref(false);
+
+async function handleUpscale(image) {
+  if (isUpscaling.value) return;
+
+  try {
+    isUpscaling.value = true;
+    selectedImage.value = image;
+
+    // Close the lightbox if open
+    imageDialog.value.show = false;
+  } catch (error) {
+    console.error('Failed to upscale:', error);
+    alert('Failed to upscale image: ' + error.message);
+  } finally {
+    isUpscaling.value = false;
+    selectedImage.value = null;
+  }
+}
+
+const editConfig = async (config) => {
+  configDialog.value = {
+    show: true,
+    config: { ...config }, // Clone the config to avoid direct mutations
+  };
+};
+
+const duplicateConfig = async (config) => {
+  const newConfig = {
+    ...config,
+    name: `${config.name} (Copy)`,
+    id: undefined, // Remove ID so a new one will be generated
+  };
+
+  try {
+    await configStore.addConfig(newConfig);
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+const handleImageClick = (image) => {
+  showImageDetails(image);
+};
+
+// Add this computed property for recent images
+const recentImages = computed(() => {
+  // Take the first 50 images or adjust as needed
+  return allImages.value.slice(0, 50);
+});
+
+const initializeApp = async () => {
+  try {
+    // Connect WebSocket first
+    await wsStore.connect();
+
+    // Wait a bit to ensure connection is established
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Then fetch configs and check status
+    await configStore.fetchConfigs();
+    await checkAuto1111Status();
+
+    // Start polling for server status
+    const statusInterval = setInterval(checkAuto1111Status, 5000);
+
+    onUnmounted(() => {
+      clearInterval(statusInterval);
+    });
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+onMounted(() => {
+  initializeApp();
+});
+</script>
+
 <template>
   <v-app>
     <!-- App Bar -->
@@ -221,221 +436,6 @@
     <app-footer />
   </v-app>
 </template>
-
-<script setup>
-import { computed, onMounted, ref, onUnmounted } from 'vue';
-import { useConfigStore } from '@/stores/config';
-import { useGenerationStore } from '@/stores/generation';
-import { useWebSocketStore } from '@/stores/websocket';
-import { storeToRefs } from 'pinia';
-import ConfigurationForm from '@/components/ConfigurationForm.vue';
-import AppFooter from '@/components/AppFooter.vue';
-import GenerationQueue from '@/components/GenerationQueue.vue';
-import ConfigurationList from '@/components/ConfigurationList.vue';
-import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
-import { webSocketService } from '@/services/websocket';
-
-const configStore = useConfigStore();
-const generationStore = useGenerationStore();
-const wsStore = useWebSocketStore();
-
-// Use storeToRefs for reactive store properties
-const { configs } = storeToRefs(configStore);
-const { activeConfigs, isProcessing } = storeToRefs(generationStore);
-
-// Initialize other reactive refs
-const drawer = ref(false);
-const showQueue = ref(false);
-const configDialog = ref({
-  show: false,
-  config: null,
-});
-
-const auto1111Status = ref({
-  color: 'warning',
-  icon: 'mdi-cloud-question',
-  message: 'Checking connection...',
-});
-
-const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
-
-const queueStatusText = computed(() => {
-  const count = runningConfigs.value;
-  if (count === 0) return 'No active generations';
-  return `${count} generation${count > 1 ? 's' : ''} in progress`;
-});
-
-const showSettings = ref(false);
-const completedJobs = ref([]);
-
-const handleJobsCompleted = (newJobs) => {
-  completedJobs.value.unshift(...newJobs);
-};
-
-const allImages = computed(() => {
-  const images = [];
-  for (const job of completedJobs.value) {
-    for (let i = 0; i < job.images.length; i++) {
-      images.push({
-        id: `${job.id}_${i}`,
-        path: job.images[i],
-        jobName: job.config.name,
-        timestamp: job.timestamp,
-        config: job.config,
-        jobId: job.id,
-        index: i,
-      });
-    }
-  }
-  return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-});
-
-const showConfigDialog = (config = null) => {
-  configDialog.value = {
-    show: true,
-    config,
-  };
-};
-
-const handleConfigSave = async (config) => {
-  try {
-    if (configDialog.value.config) {
-      await configStore.updateConfig(config);
-    } else {
-      await configStore.addConfig(config);
-    }
-    configDialog.value.show = false;
-  } catch (error) {
-    // Error is already handled by the store
-  }
-};
-
-const deleteConfig = async (config) => {
-  if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
-    try {
-      await configStore.deleteConfig(config);
-    } catch (error) {
-      // Error is already handled by the store
-    }
-  }
-};
-
-const handleError = (error) => {
-  console.error('Error:', error);
-  // TODO: Add proper error notification here
-  // For now, you could use a simple alert or implement a snackbar
-};
-
-// Check Auto1111 status periodically
-const checkAuto1111Status = async () => {
-  try {
-    const status = await webSocketService.checkServerStatus();
-    auto1111Status.value = {
-      color: status.status === 'ok' ? 'success' : 'error',
-      icon: status.status === 'ok' ? 'mdi-check-circle' : 'mdi-alert-circle',
-      message: status.status === 'ok' ? 'Server is connected' : 'Server is not connected',
-    };
-  } catch (error) {
-    auto1111Status.value = {
-      color: 'error',
-      icon: 'mdi-alert-circle',
-      message: 'Server is not connected',
-    };
-    console.error('Server status check failed:', error);
-  }
-};
-
-const imageDialog = ref({
-  show: false,
-  image: null,
-});
-
-const showImageDetails = (image) => {
-  imageDialog.value = {
-    show: true,
-    image,
-  };
-};
-
-const selectedImage = ref(null);
-const isUpscaling = ref(false);
-
-async function handleUpscale(image) {
-  if (isUpscaling.value) return;
-
-  try {
-    isUpscaling.value = true;
-    selectedImage.value = image;
-
-    // Close the lightbox if open
-    imageDialog.value.show = false;
-  } catch (error) {
-    console.error('Failed to upscale:', error);
-    alert('Failed to upscale image: ' + error.message);
-  } finally {
-    isUpscaling.value = false;
-    selectedImage.value = null;
-  }
-}
-
-const editConfig = async (config) => {
-  configDialog.value = {
-    show: true,
-    config: { ...config }, // Clone the config to avoid direct mutations
-  };
-};
-
-const duplicateConfig = async (config) => {
-  const newConfig = {
-    ...config,
-    name: `${config.name} (Copy)`,
-    id: undefined, // Remove ID so a new one will be generated
-  };
-
-  try {
-    await configStore.addConfig(newConfig);
-  } catch (error) {
-    handleError(error);
-  }
-};
-
-const handleImageClick = (image) => {
-  showImageDetails(image);
-};
-
-// Add this computed property for recent images
-const recentImages = computed(() => {
-  // Take the first 50 images or adjust as needed
-  return allImages.value.slice(0, 50);
-});
-
-const initializeApp = async () => {
-  try {
-    // Connect WebSocket first
-    await wsStore.connect();
-
-    // Wait a bit to ensure connection is established
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Then fetch configs and check status
-    await configStore.fetchConfigs();
-    await checkAuto1111Status();
-
-    // Start polling for server status
-    const statusInterval = setInterval(checkAuto1111Status, 5000);
-
-    onUnmounted(() => {
-      clearInterval(statusInterval);
-    });
-  } catch (error) {
-    handleError(error);
-  }
-};
-
-onMounted(() => {
-  initializeApp();
-});
-</script>
 
 <style scoped>
 </style>
