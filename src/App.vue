@@ -40,20 +40,21 @@ const activeJobsCount = computed(() => {
 
 const queueStatus = computed(() => {
   const count = activeJobsCount.value;
+  return {
+    count,
+    color: count > 0 ? 'primary' : 'success',
+  };
+});
 
-  if (count === 0) {
-    return {
-      color: 'success',
-      icon: 'mdi-check-circle',
-      message: 'No active generations',
-    };
+const queueTooltipContent = computed(() => {
+  const jobs = generationStore.runningConfigs || [];
+  if (jobs.length === 0) {
+    return 'No active generations';
   }
 
-  return {
-    color: 'primary',
-    icon: 'mdi-cog-sync',
-    message: `${count} generation${count > 1 ? 's' : ''} in progress`,
-  };
+  return jobs.map(job =>
+    `${job.config.name}: ${job.status === 'processing' ? 'Generating' : 'Queued'}`,
+  ).join('\n');
 });
 
 const showSettings = ref(false);
@@ -256,16 +257,17 @@ onUnmounted(() => {
             v-bind="props"
             icon
             :color="queueStatus.color"
+            @click="showQueue = true"
           >
             <v-icon :icon="queueStatus.icon" />
             <v-badge
-              v-if="activeJobsCount > 0"
-              :content="activeJobsCount.toString()"
+              v-if="queueStatus.count > 0"
+              :content="queueStatus.count.toString()"
               color="primary"
             />
           </v-btn>
         </template>
-        <span>{{ queueStatus.message }}</span>
+        <div class="text-pre-wrap">{{ queueTooltipContent }}</div>
       </v-tooltip>
 
       <!-- App Settings -->
