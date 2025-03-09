@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import sharp from 'sharp';
 import logger from './logger.js';
 
 export class QueueManager {
@@ -7,40 +6,61 @@ export class QueueManager {
     this.auto1111 = auto1111Client;
     this.imageManager = imageManager;
     this.webSocketManager = webSocketManager;
-    this.activeConfigs = new Map(); // Stores running configs by ID
-    this.queue = [];                // Array of config IDs in order
+    this.activeConfigs = new Map();
+    this.queue = [];
     this.processing = false;
     this.interval = null;
   }
 
   start() {
-    if (this.interval) return;
-    logger.info('Starting queue manager');
+    if (this.interval) {
+      return;
+    }
 
-    this.interval = setInterval(async () => {
-      if (this.processing || this.queue.length === 0) return;
+    logger.info('Starting queue processor');
+    this.interval = setInterval(() => this.processQueue(), 1000);
+  }
 
-      try {
-        this.processing = true;
-        const configId = this.queue.shift(); // Get next config from queue
-        const config = this.activeConfigs.get(configId);
+  stop() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+      logger.info('Stopped queue processor');
+    }
+  }
 
-        if (config) {
-          await this.processGeneration(config);
-          // Put it back at the end of the queue
-          this.queue.push(configId);
-        }
-      } catch (error) {
-        logger.error('Error processing generation:', error);
-      } finally {
-        this.processing = false;
+  async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    try {
+      this.processing = true;
+      const configId = this.queue[0];
+      const configEntry = this.activeConfigs.get(configId);
+
+      if (!configEntry) {
+        this.queue.shift(); // Remove invalid config from queue
+        return;
       }
-    }, 1000);
+
+      await this.processGeneration(configEntry);
+
+      // Move the config to the end of the queue for round-robin processing
+      this.queue.shift();
+      this.queue.push(configId);
+
+    } catch (error) {
+      logger.error('Error processing queue:', error);
+    } finally {
+      this.processing = false;
+    }
   }
 
   async addConfig(config) {
+    const configId = config.id || uuidv4();
     const configEntry = {
-      id: uuidv4(),
+      id: configId,
       status: 'active',
       config,
       addedAt: Date.now(),
@@ -49,14 +69,14 @@ export class QueueManager {
       failedRuns: 0,
     };
 
-    this.activeConfigs.set(configEntry.id, configEntry);
-    this.queue.push(configEntry.id);
+    this.activeConfigs.set(configId, configEntry);
+    this.queue.push(configId);
 
     this.broadcastQueueUpdate();
     return configEntry;
   }
 
-  removeConfig(configId) {
+  async removeConfig(configId) {
     if (!this.activeConfigs.has(configId)) {
       throw new Error(`Config ${configId} not found`);
     }
@@ -71,10 +91,33 @@ export class QueueManager {
     return true;
   }
 
+  broadcastQueueUpdate() {
+    const status = this.getQueueStatus();
+    this.webSocketManager.broadcast({
+      type: 'queueUpdate',
+      data: status,
+    });
+  }
+
+  getQueueStatus() {
+    return {
+      activeConfigs: Array.from(this.activeConfigs.entries()).map(([id, config]) => ({
+        id,
+        name: config.config.name,
+        status: config.status,
+        completedRuns: config.completedRuns,
+        failedRuns: config.failedRuns,
+        lastRun: config.lastRun,
+      })),
+      queueLength: this.queue.length,
+      processing: this.processing,
+    };
+  }
+
   async processGeneration(configEntry) {
     try {
       configEntry.status = 'processing';
-      this.broadcastQueueUpdate();
+      this.broadcastConfigUpdate(configEntry);
 
       // Set the model if specified
       if (configEntry.config.model) {
@@ -86,91 +129,43 @@ export class QueueManager {
         ...configEntry.config,
       });
 
-      // Skip the grid image if this was a batch generation
-      const images = configEntry.config.batch_size > 100 ?
-        result.images.slice(1) :
-        result.images;
-
-      // Save images
+      // Process and save images
       const savedPaths = await this.imageManager.saveImages(
         configEntry.config.name,
-        images,
+        result.images,
       );
 
       // Update stats
       configEntry.completedRuns++;
       configEntry.status = 'active';
-      configEntry.lastImages = savedPaths.map(path =>
-        `/data/output/${path.replace(/\\/g, '/')}`,
-      );
+      configEntry.lastRun = Date.now();
+      configEntry.lastImages = savedPaths;
 
-      logger.info({
-        configId: configEntry.id,
-        configName: configEntry.config.name,
-        imagesGenerated: images.length,
-        totalRuns: configEntry.completedRuns,
-      }, 'Generation completed');
-
-      configEntry.status = 'active';
-      this.broadcastQueueUpdate();
+      this.broadcastConfigUpdate(configEntry);
 
     } catch (error) {
       configEntry.failedRuns++;
-      configEntry.status = 'active'; // Keep active even if it failed
+      configEntry.status = 'active';
       configEntry.lastError = error.message;
-      this.broadcastQueueUpdate();
 
-      logger.error({
+      logger.error('Error in generation:', {
         configId: configEntry.id,
-        configName: configEntry.config.name,
         error: error.message,
-      }, 'Generation failed');
+      });
+
+      this.broadcastConfigUpdate(configEntry);
     }
   }
 
-  getQueueStatus() {
-    // Convert activeConfigs to jobs array with the expected structure
-    const jobs = Array.from(this.activeConfigs.values()).map(config => ({
-      id: config.id,
-      status: this.processing && this.queue[0] === config.id ? 'processing' : 'pending',
-      config: {
-        name: config.config.name,
-        // Include other necessary config fields
-      },
-      error: config.lastError,
-      timestamp: config.lastRun || config.addedAt,
-      images: config.lastImages || [],
-    }));
-
-    return {
-      jobs,
-      completedJobs: [], // If you want to track completed jobs separately
-    };
-  }
-
-  broadcastQueueUpdate() {
-    const status = this.getQueueStatus();
-    this.webSocketManager.broadcast('queueUpdate', status);
-  }
-}
-
-async function getImageMetadata(imagePath) {
-  try {
-    const metadata = await sharp(imagePath).metadata();
-
-    // Find the parameters comment
-    const parameters = metadata.comments?.find(c => c.keyword === 'parameters')?.text;
-
-    if (parameters) {
-      const parts = parameters.split('\nNegative prompt:');
-      return {
-        prompt: parts[0].trim(),
-        negative_prompt: parts[1] ? parts[1].split('\n')[0].trim() : '',
-      };
-    }
-
-    return { prompt: '', negative_prompt: '' };
-  } catch (error) {
-    return { prompt: '', negative_prompt: '' };
+  broadcastConfigUpdate(configEntry) {
+    this.webSocketManager.broadcastConfigUpdate(configEntry.id, {
+      configId: configEntry.id,
+      status: configEntry.status,
+      completedRuns: configEntry.completedRuns,
+      failedRuns: configEntry.failedRuns,
+      lastRun: configEntry.lastRun,
+      lastError: configEntry.lastError,
+      lastImages: configEntry.lastImages,
+    });
   }
 }

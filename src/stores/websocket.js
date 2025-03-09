@@ -31,9 +31,17 @@ export const useWebSocketStore = defineStore('websocket', {
         await this.ensureConnection();
         return await webSocketService.sendRequest(type, data);
       } catch (error) {
-        this.error = error.message;
+        console.error('WebSocket request failed:', error);
         throw error;
       }
+    },
+
+    onMessage(type, callback) {
+      webSocketService.subscribe(type, callback);
+    },
+
+    offMessage(type, callback) {
+      webSocketService.unsubscribe(type, callback);
     },
   },
 });

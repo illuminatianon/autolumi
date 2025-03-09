@@ -33,8 +33,8 @@
         >
           <template #prepend>
             <v-btn
-              :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
-              :color="isConfigActive(config.id) ? 'error' : 'success'"
+              :icon="isConfigActive(config.id) ? 'mdi-pause' : 'mdi-play'"
+              :color="isConfigActive(config.id) ? 'primary' : 'success'"
               size="small"
               variant="text"
               @click="toggleConfig(config)"
@@ -44,6 +44,12 @@
           <v-list-item-title>{{ config.name }}</v-list-item-title>
           <v-list-item-subtitle>
             {{ config.model }} {{ config.hr_resize_x }}x{{ config.hr_resize_y }}
+            <span
+              v-if="getConfigStatus(config.id)"
+              class="text-medium-emphasis"
+            >
+              | {{ getConfigStatus(config.id) }}
+            </span>
           </v-list-item-subtitle>
           <template #append>
             <v-menu>
@@ -98,7 +104,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
@@ -122,7 +128,7 @@ onMounted(async () => {
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 
 const getConfigStatus = (configId) => {
-  const config = activeConfigs.value.find(c => c.id === configId);
+  const config = activeConfigs.value.get(configId);
   if (!config) return '';
   return `Runs: ${config.completedRuns} | Failures: ${config.failedRuns}`;
 };

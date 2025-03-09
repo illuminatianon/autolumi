@@ -13,11 +13,36 @@ export const wsState = ref({
 class WebSocketService {
   constructor() {
     this.ws = null;
-    this.nextRequestId = 1;
     this.pendingRequests = new Map();
+    this.subscribers = new Map();
+    this.requestId = 0;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.isConnected = false;
+  }
+
+  subscribe(type, callback) {
+    if (!this.subscribers.has(type)) {
+      this.subscribers.set(type, new Set());
+    }
+    this.subscribers.get(type).add(callback);
+  }
+
+  unsubscribe(type, callback) {
+    if (this.subscribers.has(type)) {
+      this.subscribers.get(type).delete(callback);
+    }
+  }
+
+  notifySubscribers(type, data) {
+    if (this.subscribers.has(type)) {
+      this.subscribers.get(type).forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error('Error in WebSocket subscriber callback:', error);
+        }
+      });
+    }
   }
 
   async waitForConnection(timeout = 5000) {
@@ -100,6 +125,7 @@ class WebSocketService {
       try {
         const message = JSON.parse(event.data);
 
+        // Handle request responses
         if (message.requestId && this.pendingRequests.has(message.requestId)) {
           const { resolve, reject } = this.pendingRequests.get(message.requestId);
           this.pendingRequests.delete(message.requestId);
@@ -109,6 +135,10 @@ class WebSocketService {
           } else {
             resolve(message.data);
           }
+        }
+        // Handle broadcasts
+        else if (message.type) {
+          this.notifySubscribers(message.type, message.data);
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);

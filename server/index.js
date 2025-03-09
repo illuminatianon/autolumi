@@ -144,13 +144,13 @@ function initializeWebSocketHandlers(webSocketManager, services) {
   });
 
   // Generation related handlers
-  webSocketManager.registerHandler('startGeneration', (config) =>
-    services.queueManager.addConfig(config),
-  );
+  webSocketManager.registerHandler('startConfig', async (config) => {
+    return services.queueManager.addConfig(config);
+  });
 
-  webSocketManager.registerHandler('stopGeneration', ({ configId }) =>
-    services.queueManager.removeConfig(configId),
-  );
+  webSocketManager.registerHandler('stopConfig', async ({ configId }) => {
+    return services.queueManager.removeConfig(configId);
+  });
 
   webSocketManager.registerHandler('queueTxt2img', (config) =>
     services.queueManager.addJob({ type: 'txt2img', config }),
