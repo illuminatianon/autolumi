@@ -15,8 +15,13 @@ Backend responsible for
     - sending results to the frontend
     - file saving
 
-Front end should allow for multiple job configurations to be defined and selected from a list. 
-Figure out the parameters needed and create a configuration form, that can be used to make new configs and edit existing ones. 
+Vue implementation:
+ - Always use # syntax for templates, not v-slot
+ - Always use <script setup> for components
+ - When creating components, put the <template> after <script>, do not modify existing components this way unless explicitly asked.
+
+Front end should allow for multiple job configurations to be defined and selected from a list.
+Figure out the parameters needed and create a configuration form, that can be used to make new configs and edit existing ones.
 we should be able to delete them too.
 
 Automatic1111 API Integration:
@@ -25,7 +30,7 @@ Automatic1111 API Integration:
       - /sdapi/v1/img2img: Processes images—including custom scripts like “SD upscale.”
       - Extras endpoints (e.g., /sdapi/v1/extra-single-image) may also be used.
   - API returns images as base64-encoded strings; you may set flags (e.g., "save_images": true) to also save files.
- 
+
 Queue Management & Workflow:
   - The middleman service maintains two queues:
       - A general generation queue (for the 8 txt2img batches).
@@ -35,7 +40,7 @@ Queue Management & Workflow:
       - Otherwise, it processes the next txt2img batch.
   - Upscale jobs include additional parameters such as:
       - "script_name": "SD upscale"
-      - "script_args": an array 
+      - "script_args": an array
 
 Image output:
  - Output filenames: 00000.png WHERE the 5 digit number is "count(imagesInFolder)+1"

@@ -84,6 +84,7 @@ app.use('/api/config', configRouter);
 app.use('/api/generation', generationRouter);
 
 // Error handling
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   logger.error(err, 'Unhandled error');
   res.status(err.status || 500).json({
