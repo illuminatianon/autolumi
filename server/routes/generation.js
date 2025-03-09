@@ -6,7 +6,31 @@ import logger from '../lib/logger.js';
 
 export const generationRouter = express.Router();
 
-// Queue a txt2img generation job
+// Start continuous generation with config
+generationRouter.post('/start', async (req, res) => {
+  try {
+    const config = await req.services.queueManager.addConfig(req.body);
+    res.json(config);
+  } catch (error) {
+    logger.error('Error starting continuous generation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Stop continuous generation
+generationRouter.post('/stop', async (req, res) => {
+  try {
+    const { configId } = req.body;
+    await req.services.queueManager.removeConfig(configId);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error stopping continuous generation:', error);
+    res.status(error.message.includes('not found') ? 404 : 500)
+      .json({ error: error.message });
+  }
+});
+
+// Queue a one-time txt2img generation job
 generationRouter.post('/txt2img', async (req, res) => {
   try {
     const job = await req.services.queueManager.addJob({
@@ -47,24 +71,9 @@ generationRouter.post('/upscale', async (req, res) => {
     });
 
     logger.info('Queued upscale job:', job);
-    res.json({ status: 'queued', job });
-  } catch (error) {
-    logger.error('Error in upscale endpoint:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get job status
-generationRouter.get('/job/:jobId', async (req, res) => {
-  try {
-    const job = req.services.queueManager.getJobStatus(req.params.jobId);
-    if (!job) {
-      res.status(404).json({ error: 'Job not found' });
-      return;
-    }
     res.json(job);
   } catch (error) {
-    logger.error('Error getting job status:', error);
+    logger.error('Error in upscale endpoint:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -76,6 +85,20 @@ generationRouter.get('/queue', async (req, res) => {
     res.json(status);
   } catch (error) {
     logger.error('Error getting queue status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get job status
+generationRouter.get('/job/:jobId', async (req, res) => {
+  try {
+    const job = req.services.queueManager.getJobStatus(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json(job);
+  } catch (error) {
+    logger.error('Error getting job status:', error);
     res.status(500).json({ error: error.message });
   }
 });
