@@ -97,9 +97,9 @@ export const useConfigStore = defineStore('config', {
       this.error = null;
 
       try {
-        console.log('Fetching configurations...'); // Debug log
+        console.log('Fetching configurations...');
         const configs = await wsStore.sendRequest('getConfigs');
-        console.log('Received configurations:', configs); // Debug log
+        console.log('Received configurations:', configs);
 
         if (Array.isArray(configs)) {
           this.configs = configs;

@@ -20,8 +20,15 @@ export const useWebSocketStore = defineStore('websocket', {
       }
     },
 
+    async ensureConnection() {
+      if (!this.connected) {
+        await this.connect();
+      }
+    },
+
     async sendRequest(type, data = null) {
       try {
+        await this.ensureConnection();
         return await webSocketService.sendRequest(type, data);
       } catch (error) {
         this.error = error.message;
