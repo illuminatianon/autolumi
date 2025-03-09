@@ -12,9 +12,19 @@ import App from './App.vue';
 
 // Composables
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import { useWebSocketStore } from './stores/websocket';
+import { useGenerationStore } from './stores/generation';
 
 const app = createApp(App);
+const pinia = createPinia();
+app.use(pinia);
 
-registerPlugins(app);
+// Initialize WebSocket connection and stores
+const wsStore = useWebSocketStore();
+const generationStore = useGenerationStore();
+
+wsStore.connect();
+generationStore.init(); // Set up WebSocket message handlers
 
 app.mount('#app');

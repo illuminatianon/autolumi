@@ -3,9 +3,10 @@ import sharp from 'sharp';
 import logger from './logger.js';
 
 export class QueueManager {
-  constructor(auto1111Client, imageManager) {
+  constructor(auto1111Client, imageManager, webSocketManager) {
     this.auto1111 = auto1111Client;
     this.imageManager = imageManager;
+    this.webSocketManager = webSocketManager;
     this.activeConfigs = new Map(); // Stores running configs by ID
     this.queue = [];                // Array of config IDs in order
     this.processing = false;
@@ -38,9 +39,8 @@ export class QueueManager {
   }
 
   async addConfig(config) {
-    const configId = uuidv4();
     const configEntry = {
-      id: configId,
+      id: uuidv4(),
       status: 'active',
       config,
       addedAt: Date.now(),
@@ -49,10 +49,10 @@ export class QueueManager {
       failedRuns: 0,
     };
 
-    this.activeConfigs.set(configId, configEntry);
-    this.queue.push(configId);
+    this.activeConfigs.set(configEntry.id, configEntry);
+    this.queue.push(configEntry.id);
 
-    logger.info({ configId, configName: config.name }, 'Added config to continuous generation queue');
+    this.broadcastQueueUpdate();
     return configEntry;
   }
 
@@ -61,23 +61,20 @@ export class QueueManager {
       throw new Error(`Config ${configId} not found`);
     }
 
-    // Remove from active configs
     this.activeConfigs.delete(configId);
-
-    // Remove from queue
     const queueIndex = this.queue.indexOf(configId);
     if (queueIndex !== -1) {
       this.queue.splice(queueIndex, 1);
     }
 
-    logger.info({ configId }, 'Removed config from continuous generation queue');
+    this.broadcastQueueUpdate();
     return true;
   }
 
   async processGeneration(configEntry) {
     try {
       configEntry.status = 'processing';
-      configEntry.lastRun = Date.now();
+      this.broadcastQueueUpdate();
 
       // Set the model if specified
       if (configEntry.config.model) {
@@ -114,10 +111,14 @@ export class QueueManager {
         totalRuns: configEntry.completedRuns,
       }, 'Generation completed');
 
+      configEntry.status = 'active';
+      this.broadcastQueueUpdate();
+
     } catch (error) {
       configEntry.failedRuns++;
       configEntry.status = 'active'; // Keep active even if it failed
       configEntry.lastError = error.message;
+      this.broadcastQueueUpdate();
 
       logger.error({
         configId: configEntry.id,
@@ -128,12 +129,28 @@ export class QueueManager {
   }
 
   getQueueStatus() {
+    // Convert activeConfigs to jobs array with the expected structure
+    const jobs = Array.from(this.activeConfigs.values()).map(config => ({
+      id: config.id,
+      status: this.processing && this.queue[0] === config.id ? 'processing' : 'pending',
+      config: {
+        name: config.config.name,
+        // Include other necessary config fields
+      },
+      error: config.lastError,
+      timestamp: config.lastRun || config.addedAt,
+      images: config.lastImages || [],
+    }));
+
     return {
-      activeConfigs: Array.from(this.activeConfigs.values()),
-      queueLength: this.queue.length,
-      currentlyProcessing: this.processing,
-      queueOrder: [...this.queue],
+      jobs,
+      completedJobs: [], // If you want to track completed jobs separately
     };
+  }
+
+  broadcastQueueUpdate() {
+    const status = this.getQueueStatus();
+    this.webSocketManager.broadcast('queueUpdate', status);
   }
 }
 

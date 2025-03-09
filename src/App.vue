@@ -226,7 +226,6 @@ import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import GenerationQueue from '@/components/GenerationQueue.vue';
-import { getServerStatus } from '@/services/api';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 

@@ -1,24 +1,22 @@
-import { apiService } from './api';
+import { webSocketService } from './websocket';
 
 class GenerationService {
   async startContinuousGeneration(config) {
-    const response = await apiService.post('/generation/start', config);
-    return response.data;
+    return webSocketService.startGeneration(config);
   }
 
   async stopContinuousGeneration(configId) {
-    const response = await apiService.post('/generation/stop', { configId });
-    return response.data;
+    return webSocketService.stopGeneration(configId);
   }
 
   async getQueueStatus() {
-    try {
-      const response = await apiService.get('/generation/queue');
-      return response.data;
-    } catch (error) {
-      console.error('Error getting queue status:', error);
-      return { activeConfigs: [], queueLength: 0 };
-    }
+    // Since queue status is now handled via WebSocket state,
+    // we can return the current state directly
+    return webSocketService.wsState.value.queueStatus;
+  }
+
+  async cancelJob(jobId) {
+    return webSocketService.cancelJob(jobId);
   }
 }
 

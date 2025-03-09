@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia';
-import { generationService } from '@/services/generation';
+import { useWebSocketStore } from './websocket';
 
 export const useGenerationStore = defineStore('generation', {
   state: () => ({
     activeConfigs: [],
     queueOrder: [],
+    jobs: [],
+    completedJobs: [],
     isProcessing: false,
-    pollingInterval: null,
     error: null,
   }),
 
@@ -17,37 +18,22 @@ export const useGenerationStore = defineStore('generation', {
   },
 
   actions: {
-    async startPolling() {
-      if (this.pollingInterval) return;
-
-      this.pollingInterval = setInterval(async () => {
-        await this.updateQueueStatus();
-      }, 1000);
-    },
-
-    stopPolling() {
-      if (this.pollingInterval) {
-        clearInterval(this.pollingInterval);
-        this.pollingInterval = null;
-      }
-    },
-
-    async updateQueueStatus() {
-      try {
-        const status = await generationService.getQueueStatus();
-        this.activeConfigs = status.activeConfigs;
-        this.queueOrder = status.queueOrder;
-        this.isProcessing = status.currentlyProcessing;
-      } catch (error) {
-        console.error('Failed to update queue status:', error);
-        this.error = error.message;
-      }
+    init() {
+      const wsStore = useWebSocketStore();
+      // Subscribe to queue updates
+      wsStore.subscribe('queueUpdate', (data) => {
+        this.jobs = data.jobs;
+        this.completedJobs = data.completedJobs;
+        this.activeConfigs = data.activeConfigs;
+        this.queueOrder = data.queueOrder;
+        this.isProcessing = data.isProcessing;
+      });
     },
 
     async startConfig(config) {
+      const wsStore = useWebSocketStore();
       try {
-        const result = await generationService.startContinuousGeneration(config);
-        await this.updateQueueStatus();
+        const result = await wsStore.sendRequest('startGeneration', config);
         return result;
       } catch (error) {
         console.error('Failed to start config:', error);
@@ -57,11 +43,22 @@ export const useGenerationStore = defineStore('generation', {
     },
 
     async stopConfig(configId) {
+      const wsStore = useWebSocketStore();
       try {
-        await generationService.stopContinuousGeneration(configId);
-        await this.updateQueueStatus();
+        await wsStore.sendRequest('stopGeneration', { configId });
       } catch (error) {
         console.error('Failed to stop config:', error);
+        this.error = error.message;
+        throw error;
+      }
+    },
+
+    async cancelJob(jobId) {
+      const wsStore = useWebSocketStore();
+      try {
+        await wsStore.sendRequest('cancelJob', { jobId });
+      } catch (error) {
+        console.error('Failed to cancel job:', error);
         this.error = error.message;
         throw error;
       }

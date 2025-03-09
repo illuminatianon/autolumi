@@ -1,9 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:3001/api',
-});
+import { useWebSocketStore } from './websocket';
 
 export const useConfigStore = defineStore('config', {
   state: () => ({
@@ -12,12 +8,18 @@ export const useConfigStore = defineStore('config', {
     error: null,
   }),
 
+  getters: {
+    getConfigByName: (state) => (name) =>
+      state.configs.find(c => c.name === name),
+  },
+
   actions: {
     async fetchConfigs() {
+      const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        const response = await api.get('/config/generation');
-        this.configs = response.data;
+        const configs = await wsStore.sendRequest('getConfigs');
+        this.configs = configs;
       } catch (error) {
         console.error('Error fetching configs:', error);
         this.error = error.message;
@@ -27,14 +29,15 @@ export const useConfigStore = defineStore('config', {
     },
 
     async addConfig(config) {
+      const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        const response = await api.post('/config/generation', config);
-        this.configs.push(response.data);
-        return response.data;
+        const newConfig = await wsStore.sendRequest('addConfig', config);
+        this.configs.push(newConfig);
+        return newConfig;
       } catch (error) {
         console.error('Error adding config:', error);
-        this.error = error.response?.data?.error || error.message;
+        this.error = error.message;
         throw error;
       } finally {
         this.loading = false;
@@ -42,48 +45,43 @@ export const useConfigStore = defineStore('config', {
     },
 
     async updateConfig(config) {
+      const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        const response = await api.put(`/config/generation/${config.name}`, config);
+        const updatedConfig = await wsStore.sendRequest('updateConfig', {
+          name: config.name,
+          config,
+        });
         const index = this.configs.findIndex(c => c.name === config.name);
         if (index !== -1) {
-          this.configs[index] = response.data;
+          this.configs[index] = updatedConfig;
         }
-        return response.data;
+        return updatedConfig;
       } catch (error) {
         console.error('Error updating config:', error);
-        this.error = error.response?.data?.error || error.message;
+        this.error = error.message;
         throw error;
       } finally {
         this.loading = false;
       }
     },
 
-    async deleteConfig(config) {
+    async deleteConfig(name) {
+      const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        await api.delete(`/config/generation/${config.name}`);
-        const index = this.configs.findIndex(c => c.name === config.name);
+        await wsStore.sendRequest('deleteConfig', { name });
+        const index = this.configs.findIndex(c => c.name === name);
         if (index !== -1) {
           this.configs.splice(index, 1);
         }
       } catch (error) {
         console.error('Error deleting config:', error);
-        this.error = error.response?.data?.error || error.message;
+        this.error = error.message;
         throw error;
       } finally {
         this.loading = false;
       }
     },
-
-    getConfigByName(name) {
-      return this.configs.find(c => c.name === name);
-    },
-
-    clearError() {
-      this.error = null;
-    },
   },
-
-  persist: true,
 });

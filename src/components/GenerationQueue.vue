@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { generationService } from '@/services/generation';
+import { wsState, webSocketService } from '@/services/websocket';
 
 const props = defineProps({
   modelValue: {
@@ -9,7 +10,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'jobs-completed']);
 
 const showQueue = computed({
   get: () => props.modelValue,
@@ -20,12 +21,19 @@ const close = () => {
   showQueue.value = false;
 };
 
-const queueState = ref({
-  jobs: [],
-  completedJobs: [],
-});
+const queueState = computed(() => wsState.value.queueStatus);
 
-const sortedJobs = computed(() => queueState.value?.jobs || []);
+const sortedJobs = computed(() => {
+  const jobs = queueState.value?.jobs || [];
+  // Sort jobs: processing first, then pending
+  return jobs.sort((a, b) => {
+    if (a.status === 'processing') return -1;
+    if (b.status === 'processing') return 1;
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (b.status === 'pending' && a.status !== 'pending') return 1;
+    return 0;
+  });
+});
 
 const getQueuePosition = (job) => {
   if (job.status !== 'pending') return '';
@@ -61,51 +69,15 @@ const cancelJob = async (job) => {
     // The next queue status poll will update the UI
   } catch (error) {
     console.error('Error canceling job:', error);
-    // TODO: Show error notification
   }
 };
-
-const pollQueueStatus = async () => {
-  try {
-    const status = await generationService.getQueueStatus();
-    if (!status) {
-      console.warn('Received empty queue status');
-      return;
-    }
-
-    // Check if the response is HTML (incorrect response)
-    if (typeof status === 'string' && status.includes('<!DOCTYPE html>')) {
-      console.error('Received HTML instead of JSON from queue status endpoint');
-      return;
-    }
-
-    queueState.value = status;
-
-    // Emit completed jobs for parent component
-    const newCompleted = (status.jobs || []).filter(job =>
-      job.status === 'completed' &&
-      !queueState.value.completedJobs.some(existing => existing.id === job.id),
-    );
-
-    if (newCompleted.length > 0) {
-      emit('jobs-completed', newCompleted);
-    }
-  } catch (error) {
-    console.error('Error polling queue status:', error);
-  }
-};
-
-let pollInterval;
 
 onMounted(() => {
-  pollQueueStatus();
-  pollInterval = setInterval(pollQueueStatus, 5000);
+  webSocketService.connect();
 });
 
 onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-  }
+  // WebSocket service will handle reconnection automatically
 });
 </script>
 
@@ -141,35 +113,24 @@ onUnmounted(() => {
               color="primary"
               class="mr-2"
             />
-            <v-icon
-              v-else-if="job.status === 'completed'"
-              color="success"
+            <v-progress-circular
+              v-else
+              :rotate="-90"
+              :size="24"
+              :width="2"
+              :model-value="getQueueProgress(job)"
+              color="primary"
               class="mr-2"
             >
-              mdi-check-circle
-            </v-icon>
-            <v-icon
-              v-else-if="job.status === 'failed'"
-              color="error"
-              class="mr-2"
-            >
-              mdi-alert-circle
-            </v-icon>
+              {{ getQueuePosition(job) }}
+            </v-progress-circular>
           </template>
 
           <v-list-item-title>{{ job.config.name }}</v-list-item-title>
           <v-list-item-subtitle>{{ getJobStatus(job) }}</v-list-item-subtitle>
 
           <template #append>
-            <v-progress-linear
-              v-if="job.status === 'pending'"
-              :model-value="getQueueProgress(job)"
-              color="primary"
-              height="4"
-              class="mt-2"
-            />
             <v-btn
-              v-if="job.status !== 'completed'"
               icon="mdi-close"
               variant="text"
               size="small"

@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
+import { useWebSocketStore } from '@/stores/websocket';
 import {
   getAvailableModels,
   getAvailableSamplers,
-  getDefaultConfig,
   getLatentUpscaleModes,
   getUpscalers,
 } from '@/services/api';
@@ -19,6 +19,7 @@ const props = defineProps({
 const emit = defineEmits(['save', 'error', 'cancel']);
 
 const configStore = useConfigStore();
+const wsStore = useWebSocketStore();
 const form = ref(null);
 const loading = ref(false);
 const isEditing = computed(() => !!props.config);
@@ -147,8 +148,8 @@ const updateSteps = (value) => {
 onMounted(async () => {
   loading.value = true;
   try {
-    // Get defaults from backend
-    const defaults = await getDefaultConfig();
+    // Get defaults from backend via WebSocket
+    const defaults = await wsStore.sendRequest('getDefaultConfig');
     defaultForm.value = {
       name: '',
       model: '',
