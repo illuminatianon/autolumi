@@ -23,12 +23,15 @@
               :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
               :color="isConfigActive(config.id) ? 'error' : 'success'"
               size="small"
+              variant="text"
               @click="toggleConfig(config)"
             />
           </template>
 
           <v-list-item-title>{{ config.name }}</v-list-item-title>
-
+          <v-list-item-subtitle>
+            {{ config.model }} {{ config.hr_resize_x }}x{{ config.hr_resize_y }}
+          </v-list-item-subtitle>
           <template #append>
             <v-menu>
               <template #activator="{ props }">
