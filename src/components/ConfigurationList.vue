@@ -78,21 +78,26 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted } from 'vue';
+import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
 
+const configStore = useConfigStore();
 const generationStore = useGenerationStore();
-const { activeConfigs, isProcessing } = storeToRefs(generationStore);
 
-const props = defineProps({
-  configs: {
-    type: Array,
-    required: true,
-  },
+const { configs } = storeToRefs(configStore);
+const { activeConfigs } = storeToRefs(generationStore);
+
+const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config']);
+
+onMounted(async () => {
+  try {
+    await configStore.fetchConfigs();
+  } catch (error) {
+    console.error('Error fetching configs:', error);
+  }
 });
-
-defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config']);
 
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 

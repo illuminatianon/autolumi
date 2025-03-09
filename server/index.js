@@ -138,6 +138,11 @@ function initializeWebSocketHandlers(webSocketManager, services) {
     services.configManager.deleteConfig(name),
   );
 
+  webSocketManager.registerHandler('getDefaultConfig', async () => {
+    const { DEFAULT_GENERATION_PARAMS } = await import('./lib/types.js');
+    return DEFAULT_GENERATION_PARAMS;
+  });
+
   // Generation related handlers
   webSocketManager.registerHandler('startGeneration', (config) =>
     services.queueManager.addConfig(config),

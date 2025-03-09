@@ -23,6 +23,7 @@ export const useConfigStore = defineStore('config', {
       } catch (error) {
         console.error('Error fetching configs:', error);
         this.error = error.message;
+        throw error;
       } finally {
         this.loading = false;
       }

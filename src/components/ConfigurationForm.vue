@@ -2,12 +2,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useWebSocketStore } from '@/stores/websocket';
-import {
-  getAvailableModels,
-  getAvailableSamplers,
-  getLatentUpscaleModes,
-  getUpscalers,
-} from '@/services/api';
 
 const props = defineProps({
   config: {
@@ -23,126 +17,35 @@ const wsStore = useWebSocketStore();
 const form = ref(null);
 const loading = ref(false);
 const isEditing = computed(() => !!props.config);
+
 const samplers = ref([]);
 const models = ref([]);
 const upscalers = ref([]);
-const hrUpscalers = ref([]);
-
-const defaultForm = ref({
-  name: '',
-  model: '',
-  steps: 25,
-  sampler_name: '',
-  cfg_scale: 10,
-  width: 512,
-  height: 512,
-  batch_size: 1,
-  prompt: '',
-  negative_prompt: '',
-  hr_resize_x: 0,
-  hr_resize_y: 0,
-  hr_denoising_strength: 0.7,
-  hr_second_pass_steps: 20,
-  hr_upscaler: '',
-  upscale_tile_overlap: 64,
-  upscale_scale_factor: 2.5,
-  upscale_upscaler: '',
-  upscale_denoising_strength: 0.15,
-});
-
-const formData = ref({ ...defaultForm.value });
-
-const validateUniqueName = (value) => {
-  if (!value) return true;
-  const existing = configStore.getConfigByName(value);
-  if (existing && (!props.config || existing.name !== props.config.name)) {
-    return 'Configuration name must be unique';
-  }
-  return true;
-};
-
-const resetForm = () => {
-  if (isEditing.value) {
-    formData.value = { ...props.config };
-  } else {
-    formData.value = { ...defaultForm.value };
-  }
-  form.value?.resetValidation();
-};
-
-const handleSubmit = async () => {
-  const { valid } = await form.value.validate();
-
-  if (valid) {
-    loading.value = true;
-    try {
-      emit('save', { ...formData.value });
-    } catch (error) {
-      emit('error', error);
-    } finally {
-      loading.value = false;
-    }
-  }
-};
-
-const handleCancel = () => {
-  emit('cancel');
-};
+const defaultForm = ref({});
+const formData = ref({});
 
 const loadModels = async () => {
   try {
-    const response = await getAvailableModels();
-    models.value = response.map(m => ({
-      title: m.model_name,
-      model_name: m.model_name,
-    }));
+    models.value = await wsStore.sendRequest('getAvailableModels');
   } catch (error) {
-    console.error('Error loading models:', error);
+    emit('error', error);
   }
 };
 
 const loadSamplers = async () => {
   try {
-    const response = await getAvailableSamplers();
-    samplers.value = response.map(s => s.name);
+    samplers.value = await wsStore.sendRequest('getAvailableSamplers');
   } catch (error) {
-    console.error('Error loading samplers:', error);
+    emit('error', error);
   }
 };
 
 const loadUpscalers = async () => {
   try {
-    // Get both regular and latent upscalers
-    const [upscalerResponse, latentModes] = await Promise.all([
-      getUpscalers(),
-      getLatentUpscaleModes(),
-    ]);
-
-    // Regular upscalers for the upscale job
-    upscalers.value = upscalerResponse;
-
-    // Combine both types for hires.fix upscaler selection
-    hrUpscalers.value = [
-      ...latentModes.map(m => m.name), // Extract names from latent modes
-      ...upscalerResponse.map(u => u.name),
-    ];
-
-    // Set default if none selected
-    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
-      formData.value.hr_upscaler = hrUpscalers.value[0];
-    }
-    if (!formData.value.upscale_upscaler && upscalerResponse.length > 0) {
-      formData.value.upscale_upscaler = upscalerResponse[0].name;
-    }
+    upscalers.value = await wsStore.sendRequest('getUpscalers');
   } catch (error) {
-    console.error('Error loading upscalers:', error);
     emit('error', error);
   }
-};
-
-const updateSteps = (value) => {
-  formData.value.steps = value;
-  formData.value.hr_second_pass_steps = value;
 };
 
 onMounted(async () => {
@@ -159,7 +62,7 @@ onMounted(async () => {
     // Update formData with either config or new defaults
     formData.value = props.config ? { ...props.config } : { ...defaultForm.value };
 
-    // Then load the rest
+    // Load the rest of the data
     await Promise.all([
       loadModels(),
       loadSamplers(),
