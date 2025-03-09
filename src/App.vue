@@ -205,9 +205,6 @@ let statusInterval;
 const initializeApp = async () => {
   try {
     console.log('Initializing app...');
-
-    // WebSocket is already connected from main.js
-    // Just fetch configs and check status
     await configStore.fetchConfigs();
     await checkAuto1111Status();
 
