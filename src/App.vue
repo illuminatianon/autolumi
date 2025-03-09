@@ -185,6 +185,8 @@ const recentImages = computed(() => {
   return allImages.value.slice(0, 50);
 });
 
+let statusInterval;
+
 const initializeApp = async () => {
   try {
     // Connect WebSocket first
@@ -198,11 +200,7 @@ const initializeApp = async () => {
     await checkAuto1111Status();
 
     // Start polling for server status
-    const statusInterval = setInterval(checkAuto1111Status, 5000);
-
-    onUnmounted(() => {
-      clearInterval(statusInterval);
-    });
+    statusInterval = setInterval(checkAuto1111Status, 5000);
   } catch (error) {
     handleError(error);
   }
@@ -210,6 +208,12 @@ const initializeApp = async () => {
 
 onMounted(() => {
   initializeApp();
+});
+
+onUnmounted(() => {
+  if (statusInterval) {
+    clearInterval(statusInterval);
+  }
 });
 </script>
 
