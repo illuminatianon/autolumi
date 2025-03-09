@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import {
-  getModels,
-  getSamplers,
+  getAvailableModels,
+  getAvailableSamplers,
   getDefaultConfig,
   getLatentUpscaleModes,
   getUpscalers,
@@ -90,7 +90,7 @@ const handleCancel = () => {
 
 const loadModels = async () => {
   try {
-    const response = await getModels();
+    const response = await getAvailableModels();
     models.value = response.map(m => ({
       title: m.model_name,
       model_name: m.model_name,
@@ -102,7 +102,7 @@ const loadModels = async () => {
 
 const loadSamplers = async () => {
   try {
-    const response = await getSamplers();
+    const response = await getAvailableSamplers();
     samplers.value = response.map(s => s.name);
   } catch (error) {
     console.error('Error loading samplers:', error);
