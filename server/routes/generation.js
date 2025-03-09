@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import process from 'process';
+import logger from '../lib/logger.js';
 
 export const generationRouter = express.Router();
 
@@ -14,7 +15,7 @@ generationRouter.post('/txt2img', async (req, res) => {
     });
     res.json(job);
   } catch (error) {
-    console.error('Error queueing generation:', error);
+    logger.error('Error queueing generation:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -24,31 +25,18 @@ generationRouter.post('/upscale', async (req, res) => {
   try {
     const { imagePath, config } = req.body;
 
-    console.log('Upscale request received:', {
-      imagePath,
-      config: {
-        ...config,
-        // Log specific upscale params
-        upscale_tile_overlap: config.upscale_tile_overlap,
-        upscale_upscaler: config.upscale_upscaler,
-        upscale_scale_factor: config.upscale_scale_factor,
-        upscale_denoising_strength: config.upscale_denoising_strength,
-      },
-    });
-
     // Fix the path to be absolute
     const fullImagePath = path.join(process.cwd(), imagePath);
-    console.log('Full image path:', fullImagePath);
 
     // Validate request
     if (!imagePath) {
-      console.error('Missing imagePath in upscale request');
+      logger.error('Missing imagePath in upscale request');
       return res.status(400).json({ error: 'Missing imagePath' });
     }
 
     // Check if file exists
     if (!fs.existsSync(fullImagePath)) {
-      console.error(`Image file not found: ${fullImagePath}`);
+      logger.error(`Image file not found: ${fullImagePath}`);
       return res.status(404).json({ error: 'Image file not found' });
     }
 
@@ -58,10 +46,10 @@ generationRouter.post('/upscale', async (req, res) => {
       config,
     });
 
-    console.log('Queued upscale job:', job);
+    logger.info('Queued upscale job:', job);
     res.json({ status: 'queued', job });
   } catch (error) {
-    console.error('Error in upscale endpoint:', error);
+    logger.error('Error in upscale endpoint:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -76,7 +64,7 @@ generationRouter.get('/job/:jobId', async (req, res) => {
     }
     res.json(job);
   } catch (error) {
-    console.error('Error getting job status:', error);
+    logger.error('Error getting job status:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -87,7 +75,7 @@ generationRouter.get('/queue', async (req, res) => {
     const status = req.services.queueManager.getQueueStatus();
     res.json(status);
   } catch (error) {
-    console.error('Error getting queue status:', error);
+    logger.error('Error getting queue status:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -98,7 +86,7 @@ generationRouter.delete('/job/:jobId', async (req, res) => {
     await req.services.queueManager.removeJob(req.params.jobId);
     res.status(204).send();
   } catch (error) {
-    console.error('Error canceling job:', error);
+    logger.error('Error canceling job:', error);
     res.status(error.message.includes('not found') ? 404 : 500)
       .json({ error: error.message });
   }

@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import logger from './logger.js';
 
 export class ConfigManager {
   constructor(dataDir) {
@@ -20,7 +21,7 @@ export class ConfigManager {
       const data = await fs.readFile(this.configPath, 'utf8');
       return JSON.parse(data);
     } catch (error) {
-      console.error('Error loading configs:', error);
+      logger.error('Error loading configs:', error);
       return [];
     }
   }
@@ -29,7 +30,7 @@ export class ConfigManager {
     try {
       await fs.writeFile(this.configPath, JSON.stringify(configs, null, 2), 'utf8');
     } catch (error) {
-      console.error('Error saving configs:', error);
+      logger.error('Error saving configs:', error);
       throw new Error('Failed to save configurations');
     }
   }

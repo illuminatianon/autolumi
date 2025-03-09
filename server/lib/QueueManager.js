@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
+import logger from './logger.js';
 
 export class QueueManager {
   constructor(auto1111Client, imageManager) {
@@ -19,7 +20,7 @@ export class QueueManager {
 
   start() {
     if (this.interval) return;
-    console.log('Starting queue manager');
+    logger.info('Starting queue manager');
 
     this.interval = setInterval(async () => {
       if (this.processing || this.queue.length === 0) return;
@@ -27,10 +28,10 @@ export class QueueManager {
       try {
         this.processing = true;
         const jobId = this.queue.shift();
-        console.log('Processing job:', jobId);
+        logger.info('Processing job:', jobId);
         await this.processJob(jobId);
       } catch (error) {
-        console.error('Error processing job:', error);
+        logger.error('Error processing job:', error);
       } finally {
         this.processing = false;
       }
@@ -82,6 +83,7 @@ export class QueueManager {
   async processJob(jobId) {
     const job = this.jobs.get(jobId);
     if (!job) {
+      logger.error(`Job ${jobId} not found`);
       throw new Error(`Job ${jobId} not found`);
     }
 
@@ -101,7 +103,7 @@ export class QueueManager {
 
       job.status = 'completed';
     } catch (error) {
-      console.error(`Error processing job ${jobId}:`, error);
+      logger.error(`Error processing job ${jobId}:`, error);
       job.status = 'failed';
       job.error = error.message;
     } finally {
@@ -125,14 +127,13 @@ export class QueueManager {
       const jobNameIndex = pathParts.indexOf('output') + 1;
       const jobName = pathParts[jobNameIndex];
 
-      console.log('Processing upscale job:', {
+      logger.info('Processing upscale job:', {
         originalPath: job.imagePath,
         extractedJobName: jobName,
       });
 
       const imageBuffer = await fs.promises.readFile(job.imagePath);
       const metadata = await getImageMetadata(job.imagePath);
-      console.log('Extracted metadata:', metadata);
 
       const base64Image = imageBuffer.toString('base64');
       const upscaleRequest = {
@@ -155,7 +156,7 @@ export class QueueManager {
         sampler_name: 'Euler a',
       };
 
-      console.log('Upscale request:', {
+      logger.info('Upscale request:', {
         ...upscaleRequest,
         init_images: ['<base64 data omitted>'],
         prompt: upscaleRequest.prompt,
@@ -169,16 +170,13 @@ export class QueueManager {
         throw new Error('No image returned from upscale operation');
       }
 
-      console.log('Upscale successful, saving result...');
-
       // Save the upscaled image using the ImageManager
       const [savedPath] = await this.imageManager.saveImages('upscaled', [result.images[0]]);
-      console.log('Upscaled image saved to:', savedPath);
 
       // Update job with result
       job.upscaledPath = savedPath;
     } catch (error) {
-      console.error('Error in upscale processing:', error);
+      logger.error('Error in upscale processing:', error);
       throw error;
     }
   }
@@ -203,7 +201,7 @@ export class QueueManager {
       // convert job.images to URLs by adding THE SERVER URL
       job.images = job.images.map(imagePath => `/data/output/${imagePath.replace(/\\/g, '/')}`);
 
-      console.log('Generation job completed:', {
+      logger.info('Generation job completed:', {
         jobId: job.id,
         numImages: images.length,
         savedPaths: job.images,
@@ -211,7 +209,7 @@ export class QueueManager {
 
       return job;
     } catch (error) {
-      console.error('Error in generation:', error);
+      logger.error('Error in generation:', error);
       throw error;
     }
   }
@@ -248,20 +246,18 @@ export class QueueManager {
       this.priorityQueue.splice(priorityQueueIndex, 1);
     }
 
-    console.log(`Removed job ${jobId} from queue`);
+    logger.info(`Removed job ${jobId} from queue`);
   }
 }
 
 async function getImageMetadata(imagePath) {
   try {
     const metadata = await sharp(imagePath).metadata();
-    console.log('Image metadata:', metadata);
 
     // Find the parameters comment
     const parameters = metadata.comments?.find(c => c.keyword === 'parameters')?.text;
 
     if (parameters) {
-      console.log('Found parameters:', parameters);
       const parts = parameters.split('\nNegative prompt:');
       return {
         prompt: parts[0].trim(),
@@ -269,10 +265,8 @@ async function getImageMetadata(imagePath) {
       };
     }
 
-    console.log('No parameters found in image metadata');
     return { prompt: '', negative_prompt: '' };
   } catch (error) {
-    console.error('Error reading image metadata:', error);
     return { prompt: '', negative_prompt: '' };
   }
 }

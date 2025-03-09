@@ -1,4 +1,5 @@
 import express from 'express';
+import logger from '../lib/logger.js';
 
 export const configRouter = express.Router();
 
@@ -9,7 +10,7 @@ configRouter.get('/health', async (req, res) => {
     await req.services.auto1111.initialize();
     res.json({ status: 'ok' });
   } catch (error) {
-    console.error('Health check failed:', error);
+    logger.error('Health check failed:', error);
     res.status(503).json({
       status: 'error',
       message: error.message,
@@ -53,7 +54,7 @@ configRouter.get('/latent-upscale-modes', async (req, res) => {
     const modes = await req.services.auto1111.getLatentUpscaleModes();
     res.json(modes);
   } catch (error) {
-    console.error('Error getting latent upscale modes:', error);
+    logger.error('Error getting latent upscale modes:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -69,7 +70,7 @@ configRouter.post('/models/active', async (req, res) => {
     await req.services.auto1111.setModel(model_name);
     res.json({ success: true });
   } catch (error) {
-    console.error('Error setting model:', error);
+    logger.error('Error setting model:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -80,7 +81,7 @@ configRouter.post('/initialize', async (req, res) => {
     const result = await req.services.auto1111.initialize();
     res.json(result);
   } catch (error) {
-    console.error('Error initializing Auto1111:', error);
+    logger.error('Error initializing Auto1111:', error);
     res.status(500).json({
       error: error.message,
       details: {
@@ -97,7 +98,7 @@ configRouter.get('/generation', async (req, res) => {
     const configs = await req.services.configManager.getAllConfigs();
     res.json(configs);
   } catch (error) {
-    console.error('Error getting configs:', error);
+    logger.error('Error getting configs:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -107,7 +108,7 @@ configRouter.post('/generation', async (req, res) => {
     const config = await req.services.configManager.addConfig(req.body);
     res.json(config);
   } catch (error) {
-    console.error('Error adding config:', error);
+    logger.error('Error adding config:', error);
     res.status(error.message.includes('already exists') ? 409 : 500)
       .json({ error: error.message });
   }
@@ -121,7 +122,7 @@ configRouter.put('/generation/:name', async (req, res) => {
     });
     res.json(config);
   } catch (error) {
-    console.error('Error updating config:', error);
+    logger.error('Error updating config:', error);
     res.status(error.message.includes('not found') ? 404 : 500)
       .json({ error: error.message });
   }
@@ -132,7 +133,7 @@ configRouter.delete('/generation/:name', async (req, res) => {
     await req.services.configManager.deleteConfig(req.params.name);
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting config:', error);
+    logger.error('Error deleting config:', error);
     res.status(error.message.includes('not found') ? 404 : 500)
       .json({ error: error.message });
   }

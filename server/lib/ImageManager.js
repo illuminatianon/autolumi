@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import logger from './logger.js';
 
 export class ImageManager {
   constructor(outputDir) {
@@ -10,9 +11,9 @@ export class ImageManager {
     // Ensure output directory exists on startup
     try {
       await fs.promises.mkdir(this.outputDir, { recursive: true });
-      console.log('Output directory initialized:', this.outputDir);
+      logger.info('Output directory initialized:', this.outputDir);
     } catch (err) {
-      console.error('Failed to create output directory:', err);
+      logger.error('Failed to create output directory:', err);
       throw err;
     }
   }
@@ -26,7 +27,7 @@ export class ImageManager {
       await fs.promises.mkdir(jobDir, { recursive: true });
       return jobDir;
     } catch (error) {
-      console.error('Failed to create job directory:', error);
+      logger.error('Failed to create job directory:', error);
       throw new Error(`Failed to create directory for job ${jobName}: ${error.message}`);
     }
   }
@@ -49,7 +50,7 @@ export class ImageManager {
         // Directory doesn't exist yet, start at 1
         return 0;
       }
-      console.error('Failed to read job directory:', error);
+      logger.error('Failed to read job directory:', error);
       throw error;
     }
   }
@@ -66,7 +67,7 @@ export class ImageManager {
       await fs.promises.writeFile(filePath, Buffer.from(imageData, 'base64'));
       return path.relative(this.outputDir, filePath);
     } catch (error) {
-      console.error('Failed to save image:', error);
+      logger.error('Failed to save image:', error);
       throw new Error(`Failed to save image for job ${jobName}: ${error.message}`);
     }
   }
@@ -78,7 +79,6 @@ export class ImageManager {
       const savedPath = await this.saveImage(jobName, images[i]);
       savedPaths.push(savedPath);
     }
-    console.log('savedPaths', savedPaths);
     return savedPaths;
   }
 }

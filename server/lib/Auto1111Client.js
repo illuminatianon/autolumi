@@ -1,4 +1,5 @@
 import axios from 'axios';
+import logger from './logger.js';
 
 export class Auto1111Client {
   constructor(config) {
@@ -8,12 +9,12 @@ export class Auto1111Client {
     });
     this.samplers = [];
     this.models = [];
-    console.log('Auto1111Client initialized with baseURL:', config.baseURL);
+    console.info('Auto1111Client initialized with baseURL:', config.baseURL);
   }
 
   async initialize() {
     try {
-      console.log('Attempting to connect to Auto1111 API...');
+      logger.info('Attempting to connect to Auto1111 API...');
       const [samplers, models] = await Promise.all([
         this.client.get('/sdapi/v1/samplers'),
         this.client.get('/sdapi/v1/sd-models'),
@@ -27,7 +28,7 @@ export class Auto1111Client {
         models: this.models,
       };
     } catch (error) {
-      console.error('Auto1111 connection error:', {
+      logger.error('Auto1111 connection error:', {
         message: error.message,
         code: error.code,
         response: error.response ? {
@@ -65,7 +66,7 @@ export class Auto1111Client {
 
   async img2img(params) {
     try {
-      console.log('Sending img2img request:', {
+      logger.info('Sending img2img request:', {
         ...params,
         init_images: params.init_images ? ['<base64 data>'] : undefined,
         script_args: params.script_args,
@@ -73,7 +74,7 @@ export class Auto1111Client {
       const response = await this.client.post('/sdapi/v1/img2img', params);
       return response.data;
     } catch (error) {
-      console.error('Auto1111 img2img error:', {
+      logger.error('Auto1111 img2img error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -96,7 +97,7 @@ export class Auto1111Client {
       const response = await this.client.get('/sdapi/v1/upscalers');
       return response.data;
     } catch (error) {
-      console.error('Failed to get upscalers:', error);
+      logger.error('Failed to get upscalers:', error);
       throw error;
     }
   }
