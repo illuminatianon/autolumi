@@ -1,7 +1,7 @@
 /**
  * plugins/vuetify.js
  *
- * Framework documentation: https://vuetifyjs.com`
+ * Framework documentation: https://vuetifyjs.com
  */
 
 // Styles
@@ -15,5 +15,13 @@ import { createVuetify } from 'vuetify';
 export default createVuetify({
   theme: {
     defaultTheme: 'dark',
+    themes: {
+      dark: {
+        colors: {
+          primary: '#1867C0',
+          secondary: '#5CBBF6',
+        },
+      },
+    },
   },
 });
