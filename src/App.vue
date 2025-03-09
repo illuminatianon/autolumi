@@ -78,6 +78,7 @@
               @edit-config="editConfig"
               @duplicate-config="duplicateConfig"
               @delete-config="deleteConfig"
+              @error="handleError"
             />
           </v-col>
 
@@ -225,6 +226,7 @@
 import { computed, onMounted, ref, onUnmounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
+import { useWebSocketStore } from '@/stores/websocket';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
@@ -235,6 +237,7 @@ import { webSocketService } from '@/services/websocket';
 
 const configStore = useConfigStore();
 const generationStore = useGenerationStore();
+const wsStore = useWebSocketStore();
 
 // Use storeToRefs for reactive store properties
 const { configs } = storeToRefs(configStore);
@@ -319,7 +322,8 @@ const deleteConfig = async (config) => {
 
 const handleError = (error) => {
   console.error('Error:', error);
-  // TODO: Show error notification
+  // TODO: Add proper error notification here
+  // For now, you could use a simple alert or implement a snackbar
 };
 
 // Check Auto1111 status periodically
@@ -405,9 +409,15 @@ const recentImages = computed(() => {
   return allImages.value.slice(0, 50);
 });
 
-onMounted(async () => {
+const initializeApp = async () => {
   try {
-    // Fetch configs first
+    // Connect WebSocket first
+    await wsStore.connect();
+
+    // Wait a bit to ensure connection is established
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Then fetch configs and check status
     await configStore.fetchConfigs();
     await checkAuto1111Status();
 
@@ -418,9 +428,12 @@ onMounted(async () => {
       clearInterval(statusInterval);
     });
   } catch (error) {
-    console.error('Error during initialization:', error);
     handleError(error);
   }
+};
+
+onMounted(() => {
+  initializeApp();
 });
 </script>
 

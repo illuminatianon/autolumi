@@ -15,20 +15,18 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
 // Plugins
 import { registerPlugins } from '@/plugins';
 import { useWebSocketStore } from './stores/websocket';
-import { useGenerationStore } from './stores/generation';
 
 const app = createApp(App);
 const pinia = createPinia();
 
-// Register plugins first
-registerPlugins(app);
-
-// Then initialize Pinia
+pinia.use(piniaPluginPersistedstate);
 app.use(pinia);
 
-// Initialize stores after Pinia is installed
-const wsStore = useWebSocketStore();
-const generationStore = useGenerationStore();
+// Register plugins
+registerPlugins(app);
 
-// Mount the app
+// Initialize WebSocket store
+const wsStore = useWebSocketStore();
+wsStore.connect();
+
 app.mount('#app');
