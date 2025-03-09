@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useWebSocketStore } from './websocket';
 
 export const useGenerationStore = defineStore('generation', () => {
@@ -12,6 +12,14 @@ export const useGenerationStore = defineStore('generation', () => {
       await wsStore.sendRequest('startConfig', {
         id: config.id,
         config: config,
+      });
+      // Add to activeConfigs immediately for better UX
+      activeConfigs.value.set(config.id, {
+        id: config.id,
+        config: config,
+        completedRuns: 0,
+        failedRuns: 0,
+        status: 'starting',
       });
     } catch (error) {
       console.error('Failed to start config:', error);
@@ -30,22 +38,40 @@ export const useGenerationStore = defineStore('generation', () => {
   }
 
   function handleConfigUpdate(configEntry) {
-    activeConfigs.value.set(configEntry.id, {
-      ...configEntry,
-      config: configEntry.config,
-    });
+    if (!configEntry) return;
+
+    if (configEntry.status === 'stopped') {
+      activeConfigs.value.delete(configEntry.id);
+    } else {
+      activeConfigs.value.set(configEntry.id, {
+        ...configEntry,
+        config: configEntry.config,
+      });
+    }
+
+    isProcessing.value = activeConfigs.value.size > 0;
   }
 
   function isConfigActive(configId) {
     return activeConfigs.value.has(configId);
   }
 
-  // Setup WebSocket subscription using the correct methods
+  const runningConfigs = computed(() => {
+    return Array.from(activeConfigs.value.values());
+  });
+
+  // Setup WebSocket message handling
   wsStore.onMessage('configUpdate', handleConfigUpdate);
+
+  // Cleanup on store destruction
+  onUnmounted(() => {
+    wsStore.offMessage('configUpdate', handleConfigUpdate);
+  });
 
   return {
     activeConfigs,
     isProcessing,
+    runningConfigs,
     startConfig,
     stopConfig,
     handleConfigUpdate,

@@ -35,7 +35,7 @@
           <template #append>
             <v-btn-group>
               <v-btn
-                icon="mdi-play"
+                :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
                 :color="isConfigActive(config.id) ? 'error' : 'success'"
                 @click="toggleConfig(config)"
               />
@@ -96,9 +96,7 @@ onMounted(async () => {
   try {
     const wsStore = useWebSocketStore();
     await wsStore.ensureConnection();
-    console.log('Fetching configs...');
     await configStore.fetchConfigs();
-    console.log('Fetched configs:', configs.value);
   } catch (error) {
     console.error('Error fetching configs:', error);
     emit('error', error);
@@ -111,7 +109,7 @@ const getConfigStatus = (configId) => {
   if (!isConfigActive(configId)) return '';
   const config = activeConfigs.value.get(configId);
   if (!config) return '';
-  return `Runs: ${config.completedRuns} | Failures: ${config.failedRuns}`;
+  return `Runs: ${config.completedRuns || 0} | Failures: ${config.failedRuns || 0}`;
 };
 
 const toggleConfig = async (config) => {
@@ -122,6 +120,7 @@ const toggleConfig = async (config) => {
       await generationStore.startConfig(config);
     }
   } catch (error) {
+    console.error('Error toggling config:', error);
     emit('error', error);
   }
 };
