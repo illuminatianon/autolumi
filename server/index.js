@@ -17,7 +17,32 @@ const app = express();
 const port = env.PORT || 3001;
 
 // Initialize Pino logger middleware
-const expressLogger = expressPino({ logger });
+const expressLogger = expressPino({
+  logger,
+  // Customize request logging
+  autoLogging: {
+    ignore: (req) => {
+      // Don't log these endpoints
+      return (
+        // Queue status polling
+        (req.method === 'GET' && req.url === '/api/generation/queue') ||
+        // Health check endpoint
+        (req.method === 'GET' && req.url === '/api/config/health')
+      );
+    },
+  },
+  // Don't log request/response body
+  serializers: {
+    req: (req) => ({
+      method: req.method,
+      url: req.url,
+      remoteAddress: req.remoteAddress,
+    }),
+    res: (res) => ({
+      statusCode: res.statusCode,
+    }),
+  },
+});
 
 // Initialize services
 const auto1111Client = new Auto1111Client({
