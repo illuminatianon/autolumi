@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import morgan from 'morgan';
+import expressPino from 'express-pino-logger';
 import path from 'path';
-import dotenv from 'dotenv';
+import env from 'dotenv';
 import { fileURLToPath } from 'url';
 import { QueueManager } from './lib/QueueManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
@@ -10,16 +10,18 @@ import { ConfigManager } from './lib/ConfigManager.js';
 import { ImageManager } from './lib/ImageManager.js';
 import { configRouter } from './routes/config.js';
 import { generationRouter } from './routes/generation.js';
-
-dotenv.config();
+import logger from './lib/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const port = process.env.PORT || 3001;
+const port = env.PORT || 3001;
+
+// Initialize Pino logger middleware
+const expressLogger = expressPino({ logger });
 
 // Initialize services
 const auto1111Client = new Auto1111Client({
-  baseURL: process.env.AUTO1111_API_URL || 'http://127.0.0.1:7860',
+  baseURL: env.AUTO1111_API_URL || 'http://127.0.0.1:7860',
 });
 
 const dataDir = path.join(__dirname, '..', 'data');
@@ -35,7 +37,7 @@ await Promise.all([
 
 // Middleware
 app.use(cors());
-app.use(morgan('dev'));
+app.use(expressLogger); // Replace morgan with Pino
 app.use(express.json());
 
 // Serve output directory
@@ -58,7 +60,7 @@ app.use('/api/generation', generationRouter);
 
 // Error handling
 app.use((err, req, res) => {
-  console.error(err.stack);
+  logger.error(err, 'Unhandled error');
   res.status(err.status || 500).json({
     error: {
       message: err.message || 'Internal Server Error',
@@ -69,6 +71,6 @@ app.use((err, req, res) => {
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  logger.info(`Server running on port ${port}`);
   queueManager.start();
 });
