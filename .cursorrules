@@ -15,6 +15,13 @@ Backend responsible for
     - sending results to the frontend
     - file saving
 
+WebSocket Communication:
+  - Use onMessage/offMessage for WebSocket event handling, NOT subscribe/unsubscribe
+  - Always clean up WebSocket listeners in onUnmounted hooks
+  - Message handling pattern:
+      wsStore.onMessage('eventName', handler);
+      onUnmounted(() => wsStore.offMessage('eventName', handler));
+
 Vue implementation:
  - Always use # syntax for templates, not v-slot
  - Always use <script setup> for components
