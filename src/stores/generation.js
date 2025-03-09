@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { generationService } from '@/services/generation';
-import logger from '@/lib/logger';
 
 export const useGenerationStore = defineStore('generation', {
   state: () => ({
@@ -13,14 +12,14 @@ export const useGenerationStore = defineStore('generation', {
 
   getters: {
     runningConfigs: (state) => state.activeConfigs.length,
-    isConfigActive: (state) => (configId) => 
+    isConfigActive: (state) => (configId) =>
       state.activeConfigs.some(config => config.id === configId),
   },
 
   actions: {
     async startPolling() {
       if (this.pollingInterval) return;
-      
+
       this.pollingInterval = setInterval(async () => {
         await this.updateQueueStatus();
       }, 1000);
@@ -40,7 +39,7 @@ export const useGenerationStore = defineStore('generation', {
         this.queueOrder = status.queueOrder;
         this.isProcessing = status.currentlyProcessing;
       } catch (error) {
-        logger.error('Failed to update queue status:', error);
+        console.error('Failed to update queue status:', error);
         this.error = error.message;
       }
     },
@@ -51,7 +50,7 @@ export const useGenerationStore = defineStore('generation', {
         await this.updateQueueStatus();
         return result;
       } catch (error) {
-        logger.error('Failed to start config:', error);
+        console.error('Failed to start config:', error);
         this.error = error.message;
         throw error;
       }
@@ -62,7 +61,7 @@ export const useGenerationStore = defineStore('generation', {
         await generationService.stopContinuousGeneration(configId);
         await this.updateQueueStatus();
       } catch (error) {
-        logger.error('Failed to stop config:', error);
+        console.error('Failed to stop config:', error);
         this.error = error.message;
         throw error;
       }
