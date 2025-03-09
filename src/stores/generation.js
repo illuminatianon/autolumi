@@ -1,67 +1,37 @@
 import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
 import { useWebSocketStore } from './websocket';
 
-export const useGenerationStore = defineStore('generation', {
-  state: () => ({
-    activeConfigs: [],
-    queueOrder: [],
-    jobs: [],
-    completedJobs: [],
-    isProcessing: false,
-    error: null,
-  }),
+export const useGenerationStore = defineStore('generation', () => {
+  const wsStore = useWebSocketStore();
+  const activeConfigs = ref(new Map());
 
-  getters: {
-    runningConfigs: (state) => state.activeConfigs.length,
-    isConfigActive: (state) => (configId) =>
-      state.activeConfigs.some(config => config.id === configId),
-  },
+  const isConfigActive = (configId) => activeConfigs.value.has(configId);
 
-  actions: {
-    init() {
-      const wsStore = useWebSocketStore();
-      // Subscribe to queue updates
-      wsStore.subscribe('queueUpdate', (data) => {
-        this.jobs = data.jobs;
-        this.completedJobs = data.completedJobs;
-        this.activeConfigs = data.activeConfigs;
-        this.queueOrder = data.queueOrder;
-        this.isProcessing = data.isProcessing;
-      });
-    },
+  async function startConfig(config) {
+    try {
+      await wsStore.sendRequest('startConfig', { config });
+      activeConfigs.value.set(config.id, config);
+    } catch (error) {
+      console.error('Failed to start config:', error);
+      throw error;
+    }
+  }
 
-    async startConfig(config) {
-      const wsStore = useWebSocketStore();
-      try {
-        const result = await wsStore.sendRequest('startGeneration', config);
-        return result;
-      } catch (error) {
-        console.error('Failed to start config:', error);
-        this.error = error.message;
-        throw error;
-      }
-    },
+  async function stopConfig(configId) {
+    try {
+      await wsStore.sendRequest('stopConfig', { configId });
+      activeConfigs.value.delete(configId);
+    } catch (error) {
+      console.error('Failed to stop config:', error);
+      throw error;
+    }
+  }
 
-    async stopConfig(configId) {
-      const wsStore = useWebSocketStore();
-      try {
-        await wsStore.sendRequest('stopGeneration', { configId });
-      } catch (error) {
-        console.error('Failed to stop config:', error);
-        this.error = error.message;
-        throw error;
-      }
-    },
-
-    async cancelJob(jobId) {
-      const wsStore = useWebSocketStore();
-      try {
-        await wsStore.sendRequest('cancelJob', { jobId });
-      } catch (error) {
-        console.error('Failed to cancel job:', error);
-        this.error = error.message;
-        throw error;
-      }
-    },
-  },
+  return {
+    activeConfigs,
+    isConfigActive,
+    startConfig,
+    stopConfig,
+  };
 });

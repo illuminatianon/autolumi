@@ -6,7 +6,6 @@ import { useWebSocketStore } from '@/stores/websocket';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
-import GenerationQueue from '@/components/GenerationQueue.vue';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 import { webSocketService } from '@/services/websocket';
@@ -35,10 +34,26 @@ const auto1111Status = ref({
 
 const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
 
-const queueStatusText = computed(() => {
-  const count = runningConfigs.value;
-  if (count === 0) return 'No active generations';
-  return `${count} generation${count > 1 ? 's' : ''} in progress`;
+const activeJobsCount = computed(() => {
+  return runningConfigs.value || 0;
+});
+
+const queueStatus = computed(() => {
+  const count = activeJobsCount.value;
+
+  if (count === 0) {
+    return {
+      color: 'success',
+      icon: 'mdi-check-circle',
+      message: 'No active generations',
+    };
+  }
+
+  return {
+    color: 'primary',
+    icon: 'mdi-cog-sync',
+    message: `${count} generation${count > 1 ? 's' : ''} in progress`,
+  };
 });
 
 const showSettings = ref(false);
@@ -246,14 +261,17 @@ onUnmounted(() => {
           <v-btn
             v-bind="props"
             icon
-            class="mr-2"
-            :badge="runningConfigs || undefined"
-            :badge-content="runningConfigs?.toString()"
+            :color="queueStatus.color"
           >
-            <v-icon icon="mdi-format-list-checks" />
+            <v-icon :icon="queueStatus.icon" />
+            <v-badge
+              v-if="activeJobsCount > 0"
+              :content="activeJobsCount.toString()"
+              color="primary"
+            />
           </v-btn>
         </template>
-        <span>{{ queueStatusText }}</span>
+        <span>{{ queueStatus.message }}</span>
       </v-tooltip>
 
       <!-- App Settings -->
