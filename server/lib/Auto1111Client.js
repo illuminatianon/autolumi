@@ -99,7 +99,7 @@ export class Auto1111Client {
 
   async checkHealth() {
     try {
-      const response = await this.client.get('/internal-info');
+      const response = await this.client.get('/internal/ping');
       return {
         status: 'ok',
         version: response.data?.version,
