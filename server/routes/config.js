@@ -87,6 +87,7 @@ configRouter.post('/initialize', async (req, res) => {
 configRouter.get('/generation', async (req, res) => {
   try {
     const configs = await req.services.configManager.getAllConfigs();
+    logger.info(`Fetched ${configs.length} configurations`); // Add logging
     res.json(configs);
   } catch (error) {
     logger.error('Error getting configs:', error);

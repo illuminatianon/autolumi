@@ -97,11 +97,20 @@ export const useConfigStore = defineStore('config', {
       this.error = null;
 
       try {
+        console.log('Fetching configurations...'); // Debug log
         const configs = await wsStore.sendRequest('getConfigs');
-        this.configs = Array.isArray(configs) ? configs : [];
+        console.log('Received configurations:', configs); // Debug log
+
+        if (Array.isArray(configs)) {
+          this.configs = configs;
+        } else {
+          console.error('Received invalid configs format:', configs);
+          this.configs = [];
+        }
       } catch (error) {
         console.error('Error fetching configs:', error);
         this.error = error.message;
+        this.configs = [];
         throw error;
       } finally {
         this.loading = false;

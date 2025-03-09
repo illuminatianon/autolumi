@@ -12,7 +12,20 @@
     </v-card-title>
 
     <v-card-text>
-      <v-list>
+      <v-alert
+        v-if="configStore.error"
+        type="error"
+        class="mb-4"
+      >
+        {{ configStore.error }}
+      </v-alert>
+
+      <v-progress-linear
+        v-if="configStore.loading"
+        indeterminate
+      />
+
+      <v-list v-else>
         <v-list-item
           v-for="config in configs"
           :key="config.id"
@@ -73,6 +86,13 @@
           </template>
         </v-list-item>
       </v-list>
+
+      <div
+        v-if="!configStore.loading && !configStore.error && configs.length === 0"
+        class="text-center pa-4"
+      >
+        No configurations found. Click "New Config" to create one.
+      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -90,6 +110,14 @@ const { configs } = storeToRefs(configStore);
 const { activeConfigs } = storeToRefs(generationStore);
 
 const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config', 'error']);
+
+onMounted(async () => {
+  try {
+    await configStore.fetchConfigs();
+  } catch (error) {
+    emit('error', error);
+  }
+});
 
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 
