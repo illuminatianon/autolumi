@@ -417,24 +417,4 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.config-panel {
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-  min-height: calc(100vh - 40px);
-}
-
-@media (max-width: 960px) {
-  .config-panel {
-    border-right: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-    min-height: auto;
-  }
-}
-
-.position-relative {
-  position: relative;
-}
-
-.position-absolute {
-  position: absolute;
-}
 </style>
