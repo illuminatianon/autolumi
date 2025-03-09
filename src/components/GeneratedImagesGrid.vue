@@ -34,9 +34,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <v-card>
-    <v-card-title>Generated Images</v-card-title>
-    <v-card-text>
+  <v-card class="generated-images-container">
+    <v-card-title class="sticky-header">
+      Generated Images
+    </v-card-title>
+    <v-card-text class="scrollable-content">
       <v-row>
         <v-col
           v-for="image in images"
@@ -47,9 +49,9 @@ onUnmounted(() => {
           lg="3"
         >
           <v-img
-            :src="'/data/output/'+image.path"
-
-            contain
+            :src="image.path"
+            aspect-ratio="1"
+            cover
             class="rounded-lg cursor-pointer"
             @click="$emit('image-click', image)"
           >
@@ -71,3 +73,29 @@ onUnmounted(() => {
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped>
+.generated-images-container {
+  height: calc(100vh - 140px); /* Adjust based on your app's header height */
+  display: flex;
+  flex-direction: column;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--v-theme-surface);
+}
+
+.scrollable-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+</style>
