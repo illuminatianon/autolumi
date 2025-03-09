@@ -289,12 +289,6 @@ onUnmounted(() => {
       </v-list>
     </v-navigation-drawer>
 
-    <!-- Generation Queue -->
-    <generation-queue
-      v-model="showQueue"
-      @jobs-completed="handleJobsCompleted"
-    />
-
     <v-main>
       <v-container fluid>
         <v-row>
