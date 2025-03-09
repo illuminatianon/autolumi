@@ -552,7 +552,7 @@ onMounted(async () => {
     await configStore.fetchConfigs();
 
     // Start polling for queue status
-    const pollInterval = setInterval(pollQueueStatus, 1000);
+    const pollInterval = setInterval(pollQueueStatus, 5000);
 
     // Start polling for server status
     const statusInterval = setInterval(checkAuto1111Status, 5000);
