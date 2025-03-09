@@ -99,11 +99,16 @@ export class Auto1111Client {
 
   async checkHealth() {
     try {
-      // Simple API call to check if the server is responding
-      await this.client.get('/sdapi/v1/samplers');
-      return true;
+      const response = await this.client.get('/internal-info');
+      return {
+        status: 'ok',
+        version: response.data?.version,
+      };
     } catch (error) {
-      return false;
+      return {
+        status: 'error',
+        message: 'Auto1111 server not available',
+      };
     }
   }
 }

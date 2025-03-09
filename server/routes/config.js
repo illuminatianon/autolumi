@@ -5,16 +5,8 @@ export const configRouter = express.Router();
 
 // Health check endpoint
 configRouter.get('/health', async (req, res) => {
-  try {
-    await req.services.auto1111.initialize();
-    res.json({ status: 'ok' });
-  } catch (error) {
-    // Don't log the error since it's expected when auto1111 is not running
-    res.status(503).json({
-      status: 'error',
-      message: error.message,
-    });
-  }
+  const health = await req.services.auto1111.checkHealth();
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
 // Get available samplers
