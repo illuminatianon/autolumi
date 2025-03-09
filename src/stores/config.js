@@ -17,9 +17,11 @@ export const useConfigStore = defineStore('config', {
     async fetchConfigs() {
       const wsStore = useWebSocketStore();
       this.loading = true;
+      this.error = null;
+
       try {
         const configs = await wsStore.sendRequest('getConfigs');
-        this.configs = configs;
+        this.configs = Array.isArray(configs) ? configs : [];
       } catch (error) {
         console.error('Error fetching configs:', error);
         this.error = error.message;

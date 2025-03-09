@@ -222,8 +222,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { useWebSocketStore } from '@/stores/websocket';
+import { computed, onMounted, ref, onUnmounted } from 'vue';
+import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
@@ -231,18 +231,27 @@ import AppFooter from '@/components/AppFooter.vue';
 import GenerationQueue from '@/components/GenerationQueue.vue';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
+import { webSocketService } from '@/services/websocket';
 
-const drawer = ref(true);
-const wsStore = useWebSocketStore();
+const configStore = useConfigStore();
 const generationStore = useGenerationStore();
 
-const auto1111Status = computed(() => {
-  const connected = wsStore.isConnected;
-  return {
-    color: connected ? 'success' : 'error',
-    icon: connected ? 'mdi-check-circle' : 'mdi-alert-circle',
-    message: connected ? 'Connected to Auto1111' : 'Checking Auto1111 connection...',
-  };
+// Use storeToRefs for reactive store properties
+const { configs } = storeToRefs(configStore);
+const { activeConfigs, isProcessing } = storeToRefs(generationStore);
+
+// Initialize other reactive refs
+const drawer = ref(false);
+const showQueue = ref(false);
+const configDialog = ref({
+  show: false,
+  config: null,
+});
+
+const auto1111Status = ref({
+  color: 'warning',
+  icon: 'mdi-cloud-question',
+  message: 'Checking connection...',
 });
 
 const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
@@ -254,7 +263,6 @@ const queueStatusText = computed(() => {
 });
 
 const showSettings = ref(false);
-const showQueue = ref(false);
 const completedJobs = ref([]);
 
 const handleJobsCompleted = (newJobs) => {
@@ -277,11 +285,6 @@ const allImages = computed(() => {
     }
   }
   return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-});
-
-const configDialog = ref({
-  show: false,
-  config: null,
 });
 
 const showConfigDialog = (config = null) => {
@@ -322,7 +325,7 @@ const handleError = (error) => {
 // Check Auto1111 status periodically
 const checkAuto1111Status = async () => {
   try {
-    await getServerStatus();
+    const status = await webSocketService.sendRequest('getServerStatus');
     auto1111Status.value = {
       color: 'success',
       icon: 'mdi-check-circle',
@@ -334,6 +337,7 @@ const checkAuto1111Status = async () => {
       icon: 'mdi-alert-circle',
       message: 'Server is not connected',
     };
+    console.error('Server status check failed:', error);
   }
 };
 
@@ -403,10 +407,11 @@ const recentImages = computed(() => {
 
 onMounted(async () => {
   try {
-    await checkAuto1111Status();
+    // Fetch configs first
     await configStore.fetchConfigs();
+    await checkAuto1111Status();
 
-    // Start polling for server status only (queue polling is handled by GenerationQueue component)
+    // Start polling for server status
     const statusInterval = setInterval(checkAuto1111Status, 5000);
 
     onUnmounted(() => {
