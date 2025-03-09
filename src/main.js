@@ -18,17 +18,17 @@ import { useWebSocketStore } from './stores/websocket';
 import { useGenerationStore } from './stores/generation';
 
 const app = createApp(App);
+const pinia = createPinia();
 
-// Register plugins (Vuetify, Router)
+// Register plugins first
 registerPlugins(app);
 
-// Initialize Pinia with plugins
-const pinia = createPinia();
-pinia.use(piniaPluginPersistedstate);
+// Then initialize Pinia
 app.use(pinia);
 
-// Initialize WebSocket connection and stores
+// Initialize stores after Pinia is installed
 const wsStore = useWebSocketStore();
 const generationStore = useGenerationStore();
 
+// Mount the app
 app.mount('#app');

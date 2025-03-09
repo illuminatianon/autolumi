@@ -9,7 +9,7 @@
       <v-spacer />
 
       <!-- Auto1111 Status -->
-      <v-tooltip :text="auto1111Status.message">
+      <v-tooltip location="bottom">
         <template #activator="{ props }">
           <v-icon
             v-bind="props"
@@ -18,20 +18,23 @@
             class="mr-2"
           />
         </template>
+        <span>{{ auto1111Status.message }}</span>
       </v-tooltip>
 
       <!-- Queue Status -->
-      <v-tooltip :text="queueStatusText">
+      <v-tooltip location="bottom">
         <template #activator="{ props }">
           <v-btn
             v-bind="props"
-            icon="mdi-format-list-checks"
+            icon
             class="mr-2"
             :badge="runningConfigs || undefined"
-            :badge-color="isProcessing ? 'success' : undefined"
-            @click="showQueue = !showQueue"
-          />
+            :badge-content="runningConfigs?.toString()"
+          >
+            <v-icon icon="mdi-format-list-checks" />
+          </v-btn>
         </template>
+        <span>{{ queueStatusText }}</span>
       </v-tooltip>
 
       <!-- App Settings -->
@@ -219,8 +222,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, onUnmounted } from 'vue';
-import { useConfigStore } from '@/stores/config';
+import { ref, computed } from 'vue';
+import { useWebSocketStore } from '@/stores/websocket';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
@@ -229,20 +232,27 @@ import GenerationQueue from '@/components/GenerationQueue.vue';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 
-const configStore = useConfigStore();
+const drawer = ref(true);
+const wsStore = useWebSocketStore();
 const generationStore = useGenerationStore();
 
-const { configs } = storeToRefs(configStore);
-const { activeConfigs, isProcessing } = storeToRefs(generationStore);
-
-const runningConfigs = computed(() => activeConfigs.value.length);
-
-const queueStatusText = computed(() => {
-  if (runningConfigs.value === 0) return 'No active generations';
-  return `${runningConfigs.value} config${runningConfigs.value > 1 ? 's' : ''} running`;
+const auto1111Status = computed(() => {
+  const connected = wsStore.isConnected;
+  return {
+    color: connected ? 'success' : 'error',
+    icon: connected ? 'mdi-check-circle' : 'mdi-alert-circle',
+    message: connected ? 'Connected to Auto1111' : 'Checking Auto1111 connection...',
+  };
 });
 
-const drawer = ref(false);
+const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
+
+const queueStatusText = computed(() => {
+  const count = runningConfigs.value;
+  if (count === 0) return 'No active generations';
+  return `${count} generation${count > 1 ? 's' : ''} in progress`;
+});
+
 const showSettings = ref(false);
 const showQueue = ref(false);
 const completedJobs = ref([]);
@@ -267,12 +277,6 @@ const allImages = computed(() => {
     }
   }
   return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-});
-
-const auto1111Status = ref({
-  color: 'warning',
-  icon: 'mdi-sync',
-  message: 'Checking Auto1111 connection...',
 });
 
 const configDialog = ref({
