@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
-import { useWebSocketStore } from '@/stores/websocket';
+import { storeToRefs } from 'pinia';
 
 const props = defineProps({
   config: {
@@ -13,65 +13,95 @@ const props = defineProps({
 const emit = defineEmits(['save', 'error', 'cancel']);
 
 const configStore = useConfigStore();
-const wsStore = useWebSocketStore();
+const { models, samplers, upscalers, hrUpscalers, loading } = storeToRefs(configStore);
+
 const form = ref(null);
-const loading = ref(false);
 const isEditing = computed(() => !!props.config);
 
-const samplers = ref([]);
-const models = ref([]);
-const upscalers = ref([]);
-const defaultForm = ref({});
-const formData = ref({});
+const defaultForm = ref({
+  name: '',
+  model: '',
+  steps: 25,
+  sampler_name: '',
+  cfg_scale: 10,
+  width: 512,
+  height: 512,
+  batch_size: 1,
+  prompt: '',
+  negative_prompt: '',
+  hr_resize_x: 0,
+  hr_resize_y: 0,
+  hr_denoising_strength: 0.7,
+  hr_second_pass_steps: 20,
+  hr_upscaler: '',
+  upscale_tile_overlap: 64,
+  upscale_scale_factor: 2.5,
+  upscale_upscaler: '',
+  upscale_denoising_strength: 0.15,
+});
 
-const loadModels = async () => {
-  try {
-    models.value = await wsStore.sendRequest('getAvailableModels');
-  } catch (error) {
-    emit('error', error);
+const formData = ref({ ...defaultForm.value });
+
+const validateUniqueName = (value) => {
+  if (!value) return true;
+  return configStore.isNameUnique(value, props.config) || 'Configuration name must be unique';
+};
+
+const handleSubmit = async () => {
+  const isValid = await form.value?.validate();
+
+  if (isValid?.valid) {
+    try {
+      emit('save', { ...formData.value });
+    } catch (error) {
+      emit('error', error);
+    }
   }
 };
 
-const loadSamplers = async () => {
-  try {
-    samplers.value = await wsStore.sendRequest('getAvailableSamplers');
-  } catch (error) {
-    emit('error', error);
-  }
+const handleCancel = () => {
+  emit('cancel');
 };
 
-const loadUpscalers = async () => {
-  try {
-    upscalers.value = await wsStore.sendRequest('getUpscalers');
-  } catch (error) {
-    emit('error', error);
-  }
+const updateSteps = (value) => {
+  formData.value.steps = value;
+  formData.value.hr_second_pass_steps = value;
 };
 
 onMounted(async () => {
-  loading.value = true;
   try {
-    // Get defaults from backend via WebSocket
-    const defaults = await wsStore.sendRequest('getDefaultConfig');
+    // Load all options in parallel
+    await Promise.all([
+      configStore.loadModelOptions(),
+      configStore.loadSamplerOptions(),
+      configStore.loadUpscalerOptions(),
+    ]);
+
+    // Get defaults
+    const defaults = await configStore.getDefaultConfig();
     defaultForm.value = {
-      name: '',
-      model: '',
+      ...defaultForm.value,
       ...defaults,
     };
 
-    // Update formData with either config or new defaults
+    // Set initial form data
     formData.value = props.config ? { ...props.config } : { ...defaultForm.value };
 
-    // Load the rest of the data
-    await Promise.all([
-      loadModels(),
-      loadSamplers(),
-      loadUpscalers(),
-    ]);
+    // Set default values if none selected
+    if (!formData.value.model && models.value.length > 0) {
+      formData.value.model = models.value[0].title;
+    }
+    if (!formData.value.sampler_name && samplers.value.length > 0) {
+      formData.value.sampler_name = samplers.value[0];
+    }
+    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
+      formData.value.hr_upscaler = hrUpscalers.value[0];
+    }
+    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
+      formData.value.upscale_upscaler = upscalers.value[0].name;
+    }
   } catch (error) {
     emit('error', error);
-  } finally {
-    loading.value = false;
   }
 });
 </script>
@@ -84,8 +114,8 @@ onMounted(async () => {
     </v-card-title>
 
     <v-form
-      @submit.prevent="handleSubmit"
       ref="form"
+      @submit.prevent="handleSubmit"
     >
       <v-card-text>
         <v-text-field
@@ -195,7 +225,6 @@ onMounted(async () => {
           </v-col>
         </v-row>
 
-        <!-- Hires.fix Settings -->
         <v-divider class="my-4" />
         <h3 class="text-h6 mb-2">Hiresfix Settings</h3>
 

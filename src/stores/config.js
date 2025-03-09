@@ -4,6 +4,10 @@ import { useWebSocketStore } from './websocket';
 export const useConfigStore = defineStore('config', {
   state: () => ({
     configs: [],
+    models: [],
+    samplers: [],
+    upscalers: [],
+    latentModes: [],
     loading: false,
     error: null,
   }),
@@ -11,9 +15,78 @@ export const useConfigStore = defineStore('config', {
   getters: {
     getConfigByName: (state) => (name) =>
       state.configs.find(c => c.name === name),
+
+    isNameUnique: (state) => (name, excludeConfig = null) => {
+      const existing = state.configs.find(c => c.name === name);
+      return !existing || (excludeConfig && existing.name === excludeConfig.name);
+    },
+
+    hrUpscalers: (state) => [
+      ...state.latentModes.map(m => m.name),
+      ...state.upscalers.map(u => u.name),
+    ],
   },
 
   actions: {
+    async loadModelOptions() {
+      const wsStore = useWebSocketStore();
+      try {
+        this.loading = true;
+        this.models = await wsStore.sendRequest('getModels');
+      } catch (error) {
+        console.error('Error loading models:', error);
+        this.error = error.message;
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async loadSamplerOptions() {
+      const wsStore = useWebSocketStore();
+      try {
+        this.loading = true;
+        this.samplers = await wsStore.sendRequest('getSamplers');
+      } catch (error) {
+        console.error('Error loading samplers:', error);
+        this.error = error.message;
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async loadUpscalerOptions() {
+      const wsStore = useWebSocketStore();
+      try {
+        this.loading = true;
+        [this.latentModes, this.upscalers] = await Promise.all([
+          wsStore.sendRequest('getLatentUpscaleModes'),
+          wsStore.sendRequest('getUpscalers'),
+        ]);
+      } catch (error) {
+        console.error('Error loading upscalers:', error);
+        this.error = error.message;
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async getDefaultConfig() {
+      const wsStore = useWebSocketStore();
+      try {
+        this.loading = true;
+        return await wsStore.sendRequest('getDefaultConfig');
+      } catch (error) {
+        console.error('Error getting default config:', error);
+        this.error = error.message;
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async fetchConfigs() {
       const wsStore = useWebSocketStore();
       this.loading = true;
