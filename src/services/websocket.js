@@ -17,7 +17,6 @@ class WebSocketService {
     this.pendingRequests = new Map();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.connectPromise = null;
     this.isConnected = false;
   }
 
@@ -72,7 +71,6 @@ class WebSocketService {
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error);
           wsState.value.connected = false;
-          this.connectPromise = null;
           reject(error);
         };
 
@@ -80,26 +78,21 @@ class WebSocketService {
           console.log('WebSocket connection closed'); // Debug log
           wsState.value.connected = false;
           this.handleDisconnect();
-          this.connectPromise = null;
         };
 
         // Add connection timeout
         setTimeout(() => {
           if (this.ws.readyState !== WebSocket.OPEN) {
             this.ws.close();
-            this.connectPromise = null;
             reject(new Error('WebSocket connection timeout'));
           }
         }, 5000);
 
       } catch (error) {
         console.error('WebSocket connection error:', error);
-        this.connectPromise = null;
         reject(error);
       }
     });
-
-    return this.connectPromise;
   }
 
   setupMessageHandler() {

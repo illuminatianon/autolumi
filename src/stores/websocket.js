@@ -1,8 +1,5 @@
 import { defineStore } from 'pinia';
-import { webSocketService, wsState } from '@/services/websocket';
-
-const WS_PORT = import.meta.env.PROD ? window.location.port : '3001';
-const WS_URL = `ws://${window.location.hostname}:${WS_PORT}/ws`;
+import { webSocketService } from '@/services/websocket';
 
 export const useWebSocketStore = defineStore('websocket', {
   state: () => ({
