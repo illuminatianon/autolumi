@@ -1,40 +1,26 @@
-import { cancelJob, getQueueStatus, queueGeneration, queueUpscale } from './api';
+import { apiService } from './api';
+import logger from './logger';
 
 class GenerationService {
-  async queueGeneration(config) {
-    return await queueGeneration(config);
+  async startContinuousGeneration(config) {
+    const response = await apiService.post('/generation/start', config);
+    return response.data;
+  }
+
+  async stopContinuousGeneration(configId) {
+    const response = await apiService.post('/generation/stop', { configId });
+    return response.data;
   }
 
   async getQueueStatus() {
     try {
-      const response = await getQueueStatus();
-
-      // Validate that we got a proper JSON response
-      if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
-        console.error('Received HTML instead of JSON from queue status endpoint');
-        return { jobs: [], completedJobs: [] }; // Return empty state
-      }
-
-      return response;
+      const response = await apiService.get('/generation/queue');
+      return response.data;
     } catch (error) {
-      console.error('Error getting queue status:', error);
-      // Return a default state instead of throwing
-      return { jobs: [], completedJobs: [] };
-    }
-  }
-
-  async queueUpscale(imagePath, config) {
-    return await queueUpscale(imagePath, config);
-  }
-
-  async cancelJob(jobId) {
-    try {
-      await cancelJob(jobId);
-    } catch (error) {
-      console.error('Error canceling job:', error);
-      throw error;
+      logger.error('Error getting queue status:', error);
+      return { activeConfigs: [], queueLength: 0 };
     }
   }
 }
 
-export default new GenerationService();
+export const generationService = new GenerationService();
