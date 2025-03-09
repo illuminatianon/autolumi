@@ -81,6 +81,13 @@ export class WebSocketManager {
     this.broadcast(message);
   }
 
+  broadcastJobCompleted(jobData) {
+    this.broadcast({
+      type: 'jobCompleted',
+      data: jobData,
+    });
+  }
+
   broadcast(message) {
     const messageStr = JSON.stringify(message);
     this.clients.forEach(client => {

@@ -1,12 +1,36 @@
 <script setup>
-defineProps({
-  images: {
-    type: Array,
-    required: true,
-  },
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useWebSocketStore } from '@/stores/websocket';
+
+const images = ref([]);
+const wsStore = useWebSocketStore();
+
+const emit = defineEmits(['image-click']);
+
+function handleJobCompleted(jobData) {
+  if (!jobData?.images?.length) return;
+
+  const newImages = jobData.images.map((path, index) => ({
+    id: `${jobData.id}_${index}`,
+    path,
+    jobName: jobData.config.name,
+    timestamp: jobData.timestamp,
+    config: jobData.config,
+    jobId: jobData.id,
+    index,
+  }));
+
+  // Add new images to the beginning of the array
+  images.value.unshift(...newImages);
+}
+
+onMounted(() => {
+  wsStore.onMessage('jobCompleted', handleJobCompleted);
 });
 
-defineEmits(['image-click']);
+onUnmounted(() => {
+  wsStore.offMessage('jobCompleted', handleJobCompleted);
+});
 </script>
 
 <template>
@@ -23,10 +47,10 @@ defineEmits(['image-click']);
           lg="3"
         >
           <v-img
-            :src="image.path"
-            aspect-ratio="1"
-            cover
-            class="rounded-lg"
+            :src="'/data/output/'+image.path"
+
+            contain
+            class="rounded-lg cursor-pointer"
             @click="$emit('image-click', image)"
           >
             <template #placeholder>
@@ -37,7 +61,7 @@ defineEmits(['image-click']);
               >
                 <v-progress-circular
                   indeterminate
-                  color="primary"
+                  color="grey-lighten-5"
                 />
               </v-row>
             </template>

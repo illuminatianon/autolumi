@@ -126,9 +126,8 @@ export class QueueManager {
       configEntry.status = 'processing';
       this.broadcastConfigUpdate(configEntry);
 
-      // Access the config directly without the extra nesting
       if (configEntry.config.config.model) {
-        await this.auto1111.setModel(configEntry.config.model);
+        await this.auto1111.setModel(configEntry.config.config.model);
       }
 
       // Generate the images
@@ -148,6 +147,14 @@ export class QueueManager {
       configEntry.lastRun = Date.now();
       configEntry.lastImages = savedPaths;
 
+      // Broadcast job completion with saved images
+      this.webSocketManager.broadcastJobCompleted({
+        id: configEntry.id,
+        config: configEntry.config,  // Maintain nested config structure
+        images: savedPaths,
+        timestamp: Date.now(),
+      });
+
       this.broadcastConfigUpdate(configEntry);
 
     } catch (error) {
@@ -158,7 +165,7 @@ export class QueueManager {
       logger.error('Error in generation:', {
         configId: configEntry.id,
         error: error.message,
-        config: configEntry.config, // Log the config structure for debugging
+        config: configEntry.config,
       });
 
       this.broadcastConfigUpdate(configEntry);
