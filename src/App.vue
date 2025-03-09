@@ -329,11 +329,11 @@ const handleError = (error) => {
 // Check Auto1111 status periodically
 const checkAuto1111Status = async () => {
   try {
-    const status = await webSocketService.sendRequest('getServerStatus');
+    const status = await webSocketService.checkServerStatus();
     auto1111Status.value = {
-      color: 'success',
-      icon: 'mdi-check-circle',
-      message: 'Server is connected',
+      color: status.status === 'ok' ? 'success' : 'error',
+      icon: status.status === 'ok' ? 'mdi-check-circle' : 'mdi-alert-circle',
+      message: status.status === 'ok' ? 'Server is connected' : 'Server is not connected',
     };
   } catch (error) {
     auto1111Status.value = {

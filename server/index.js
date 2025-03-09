@@ -163,6 +163,10 @@ function initializeWebSocketHandlers(webSocketManager, services) {
   webSocketManager.registerHandler('cancelJob', ({ jobId }) =>
     services.queueManager.removeJob(jobId),
   );
+
+  webSocketManager.registerHandler('getServerStatus', () =>
+    services.auto1111.checkHealth(),
+  );
 }
 
 // Initialize WebSocket after creating the HTTP server

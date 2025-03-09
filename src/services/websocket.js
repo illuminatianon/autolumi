@@ -160,6 +160,10 @@ class WebSocketService {
   async cancelJob(jobId) {
     return this.sendRequest('cancelJob', { jobId });
   }
+
+  async checkServerStatus() {
+    return this.sendRequest('getServerStatus');
+  }
 }
 
 export const webSocketService = new WebSocketService();
