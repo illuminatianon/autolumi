@@ -21,13 +21,18 @@
       </v-tooltip>
 
       <!-- Queue Status -->
-      <v-btn
-        icon="mdi-format-list-checks"
-        class="mr-2"
-        :badge="queueCount || undefined"
-        :badge-color="isProcessing ? 'success' : undefined"
-        @click="showQueue = !showQueue"
-      />
+      <v-tooltip :text="queueStatusText">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            icon="mdi-format-list-checks"
+            class="mr-2"
+            :badge="runningConfigs || undefined"
+            :badge-color="isProcessing ? 'success' : undefined"
+            @click="showQueue = !showQueue"
+          />
+        </template>
+      </v-tooltip>
 
       <!-- App Settings -->
       <v-btn
@@ -139,178 +144,24 @@
             cols="12"
             md="4"
           >
-            <div class="d-flex align-center justify-space-between mb-4">
-              <h2 class="text-h5">Generation Configs</h2>
-              <v-btn
-                color="primary"
-                prepend-icon="mdi-plus"
-                @click="showConfigDialog()"
-              >
-                New Config
-              </v-btn>
-            </div>
-
-            <v-list
-              v-if="!configStore.loading"
-              lines="two"
-            >
-              <v-list-group
-                v-for="config in configs"
-                :key="config.name"
-                :value="config.name"
-              >
-                <template #activator="{ props }">
-                  <v-list-item
-                    v-bind="props"
-                    :title="config.name"
-                    :subtitle="getConfigSummary(config)"
-                  >
-                    <template #prepend>
-                      <v-btn
-                        icon="mdi-play"
-                        variant="text"
-                        color="success"
-                        size="small"
-                        class="mr-2"
-                        @click.stop="queueGeneration(config)"
-                        :disabled="isGenerating(config)"
-                      />
-                    </template>
-
-                    <template #append>
-                      <v-btn
-                        icon="mdi-pencil"
-                        variant="text"
-                        size="small"
-                        @click.stop="showConfigDialog(config)"
-                      />
-                      <v-btn
-                        icon="mdi-delete"
-                        variant="text"
-                        color="error"
-                        size="small"
-                        @click.stop="deleteConfig(config)"
-                      />
-                    </template>
-                  </v-list-item>
-                </template>
-
-                <v-list-item>
-                  <v-list-item-subtitle>
-                    <div class="text-body-2 mt-2">
-                      <div><strong>Initial Size:</strong> {{ config.width }}x{{ config.height }}</div>
-                      <div><strong>Steps:</strong> {{ config.steps }}</div>
-                      <div><strong>CFG Scale:</strong> {{ config.cfg_scale }}</div>
-                      <div><strong>Sampler:</strong> {{ config.sampler_name }}</div>
-                      <div><strong>Batch Size:</strong> {{ config.batch_size }}</div>
-                      <div class="mt-2"><strong>Prompt:</strong></div>
-                      <div class="text-wrapped">{{ config.prompt }}</div>
-                      <div
-                        v-if="config.negative_prompt"
-                        class="mt-2"
-                      ><strong>Negative Prompt:</strong></div>
-                      <div
-                        v-if="config.negative_prompt"
-                        class="text-wrapped"
-                      >{{ config.negative_prompt }}
-                      </div>
-                    </div>
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list-group>
-
-              <v-list-item v-if="configs.length === 0">
-                <v-list-item-title class="text-center text-medium-emphasis">
-                  No configurations yet. Click "New Config" to create one.
-                </v-list-item-title>
-              </v-list-item>
-            </v-list>
-
-            <div
-              v-else
-              class="d-flex justify-center align-center"
-              style="min-height: 200px"
-            >
-              <v-progress-circular indeterminate />
-            </div>
+            <configuration-list
+              :configs="configs"
+              @new-config="showConfigDialog()"
+              @edit-config="editConfig"
+              @duplicate-config="duplicateConfig"
+              @delete-config="deleteConfig"
+            />
           </v-col>
 
-          <!-- Right side - Results -->
+          <!-- Right side - Generated Images -->
           <v-col
             cols="12"
             md="8"
           >
-            <h2 class="text-h5 mb-4">Generation Results</h2>
-            <div
-              v-if="!hasGeneratedImages"
-              class="text-center pa-8"
-            >
-              <v-alert
-                type="info"
-                text="No generated images yet. Select a configuration and click generate to start."
-              />
-            </div>
-            <v-row
-              v-else
-              dense
-            >
-              <v-col
-                v-for="image in allImages"
-                :key="image.id"
-                cols="6"
-                sm="4"
-                md="3"
-                xl="2"
-                class="pa-1"
-              >
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    v-bind="props"
-                    :elevation="isHovering ? 8 : 2"
-                    class="transition-swing"
-                  >
-                    <v-img
-                      :src="`${image.path}`"
-                      :aspect-ratio="image.config.width / image.config.height"
-                      @click="showImageDetails(image)"
-                    >
-                      <template #placeholder>
-                        <div class="d-flex align-center justify-center fill-height">
-                          <v-progress-circular
-                            indeterminate
-                            color="primary"
-                          />
-                        </div>
-                      </template>
-
-                      <div
-                        v-if="isHovering"
-                        class="d-flex flex-column fill-height position-absolute"
-                        style="background: rgba(0, 0, 0, 0.7); inset: 0;"
-                      >
-                        <v-card-title class="text-white text-subtitle-2 pt-2">{{ image.jobName }}</v-card-title>
-                        <v-card-subtitle class="text-white text-caption pb-0">
-                          {{ new Date(image.timestamp).toLocaleString() }}
-                        </v-card-subtitle>
-                        <v-spacer />
-                        <v-card-actions>
-                          <v-spacer />
-                          <v-btn
-                            variant="tonal"
-                            color="primary"
-                            size="small"
-                            prepend-icon="mdi-arrow-up-bold"
-                            @click.stop="handleUpscale(image)"
-                          >
-                            Upscale
-                          </v-btn>
-                        </v-card-actions>
-                      </div>
-                    </v-img>
-                  </v-card>
-                </v-hover>
-              </v-col>
-            </v-row>
+            <generated-images-grid
+              :images="recentImages"
+              @image-click="handleImageClick"
+            />
           </v-col>
         </v-row>
       </v-container>
@@ -445,17 +296,31 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
+import { useGenerationStore } from '@/stores/generation';
+import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import { getServerStatus } from '@/services/api';
 import generationService from '@/services/generation';
+import ConfigurationList from '@/components/ConfigurationList.vue';
+import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 
 const configStore = useConfigStore();
+const generationStore = useGenerationStore();
+
+const { configs } = storeToRefs(configStore);
+const { activeConfigs, isProcessing, queueOrder } = storeToRefs(generationStore);
+
+const runningConfigs = computed(() => activeConfigs.value.length);
+
+const queueStatusText = computed(() => {
+  if (runningConfigs.value === 0) return 'No active generations';
+  return `${runningConfigs.value} config${runningConfigs.value > 1 ? 's' : ''} running`;
+});
+
 const drawer = ref(false);
 const showSettings = ref(false);
 
-const configs = computed(() => configStore.configs);
-const completedJobs = ref([]);
 const allImages = computed(() => {
   const images = [];
   for (const job of completedJobs.value) {
