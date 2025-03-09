@@ -301,7 +301,7 @@ import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import { getServerStatus } from '@/services/api';
-import generationService from '@/services/generation';
+import { generationService } from '@/services/generation';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 
@@ -309,7 +309,7 @@ const configStore = useConfigStore();
 const generationStore = useGenerationStore();
 
 const { configs } = storeToRefs(configStore);
-const { activeConfigs, isProcessing, queueOrder } = storeToRefs(generationStore);
+const { activeConfigs, isProcessing } = storeToRefs(generationStore);
 
 const runningConfigs = computed(() => activeConfigs.value.length);
 
@@ -338,8 +338,6 @@ const allImages = computed(() => {
   }
   return images.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 });
-
-const hasGeneratedImages = computed(() => allImages.value.length > 0);
 
 const auto1111Status = ref({
   color: 'warning',
@@ -402,34 +400,6 @@ const checkAuto1111Status = async () => {
       icon: 'mdi-alert-circle',
       message: 'Server is not connected',
     };
-  }
-};
-
-const getConfigSummary = (config) => {
-  const parts = [
-    `Model: ${config.model}`,
-    config.hr_resize_x && config.hr_resize_y
-      ? `Target: ${config.hr_resize_x}x${config.hr_resize_y}`
-      : 'No upscale',
-  ];
-  return parts.join(' • ');
-};
-
-const queueCount = computed(() => queueState.value?.jobs?.length || 0);
-const isProcessing = computed(() => queueState.value?.jobs?.some(job => job.status === 'processing') || false);
-
-const isGenerating = (config) => {
-  return queueState.value?.jobs?.some(job =>
-    job.config.name === config.name &&
-    (job.status === 'pending' || job.status === 'processing'),
-  ) || false;
-};
-
-const queueGeneration = async (config) => {
-  try {
-    await generationService.queueGeneration(config);
-  } catch (error) {
-    console.error('Error queueing generation:', error);
   }
 };
 
@@ -530,17 +500,6 @@ async function handleUpscale(image) {
   try {
     isUpscaling.value = true;
     selectedImage.value = image;
-
-    // Get the upscale config from the original generation config
-    const upscaleConfig = {
-      upscale_tile_overlap: image.config.upscale_tile_overlap,
-      upscale_upscaler: image.config.upscale_upscaler,
-      upscale_scale_factor: image.config.upscale_scale_factor,
-      upscale_denoising_strength: image.config.upscale_denoising_strength,
-    };
-
-    // Queue the upscale job
-    const job = await generationService.queueUpscale(image.path, upscaleConfig);
 
     // Close the lightbox if open
     imageDialog.value.show = false;
