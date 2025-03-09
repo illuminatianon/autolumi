@@ -294,7 +294,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, onUnmounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
@@ -512,29 +512,62 @@ async function handleUpscale(image) {
   }
 }
 
+const completedJobs = ref([]);
+
+const editConfig = async (config) => {
+  configDialog.value = {
+    show: true,
+    config: { ...config }, // Clone the config to avoid direct mutations
+  };
+};
+
+const duplicateConfig = async (config) => {
+  const newConfig = {
+    ...config,
+    name: `${config.name} (Copy)`,
+    id: undefined, // Remove ID so a new one will be generated
+  };
+
+  try {
+    await configStore.addConfig(newConfig);
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+const handleImageClick = (image) => {
+  showImageDetails(image);
+};
+
+// Add this computed property for recent images
+const recentImages = computed(() => {
+  // Take the first 50 images or adjust as needed
+  return allImages.value.slice(0, 50);
+});
+
 onMounted(async () => {
   try {
     // Initial checks
     await checkAuto1111Status();
-
-    // Load configs
     await configStore.fetchConfigs();
 
-    // Initial queue status check - do this once at startup
-    try {
-      const queueStatus = await generationService.getQueueStatus();
-      if (queueStatus && typeof queueStatus !== 'string') {
-        queueState.value = queueStatus;
-      }
-    } catch (error) {
-      console.error('Initial queue status check failed:', error);
-    }
+    // Start polling for queue status
+    const pollInterval = setInterval(pollQueueStatus, 1000);
 
-    // Set up polling intervals with more reasonable frequencies
-    setInterval(checkAuto1111Status, 30000); // Every 30 seconds is fine for server status
-    setInterval(pollQueueStatus, 5000);      // Every 5 seconds for queue status
+    // Start polling for server status
+    const statusInterval = setInterval(checkAuto1111Status, 5000);
+
+    // Clean up intervals on component unmount
+    onUnmounted(() => {
+      clearInterval(pollInterval);
+      clearInterval(statusInterval);
+    });
+
+    // Initial queue status check
+    await pollQueueStatus();
   } catch (error) {
     console.error('Error during initialization:', error);
+    handleError(error);
   }
 });
 </script>
