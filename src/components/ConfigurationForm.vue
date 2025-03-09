@@ -325,6 +325,8 @@ onMounted(async () => {
             <v-select
               v-model="formData.upscale_upscaler"
               :items="upscalers"
+              item-title="name"
+              item-value="name"
               label="Upscaler"
               :rules="[v => !!v || 'Upscaler is required']"
             />

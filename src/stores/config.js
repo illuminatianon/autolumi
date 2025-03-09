@@ -32,7 +32,8 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       try {
         this.loading = true;
-        this.models = await wsStore.sendRequest('getModels');
+        const response = await wsStore.sendRequest('getModels');
+        this.models = response.map(model => model.model_name);
       } catch (error) {
         console.error('Error loading models:', error);
         this.error = error.message;
@@ -46,7 +47,8 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       try {
         this.loading = true;
-        this.samplers = await wsStore.sendRequest('getSamplers');
+        const response = await wsStore.sendRequest('getSamplers');
+        this.samplers = response.map(sampler => sampler.name);
       } catch (error) {
         console.error('Error loading samplers:', error);
         this.error = error.message;
@@ -60,10 +62,12 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       try {
         this.loading = true;
-        [this.latentModes, this.upscalers] = await Promise.all([
+        const [latentModes, upscalers] = await Promise.all([
           wsStore.sendRequest('getLatentUpscaleModes'),
           wsStore.sendRequest('getUpscalers'),
         ]);
+        this.latentModes = latentModes.map(mode => ({ name: mode.name }));
+        this.upscalers = upscalers.map(upscaler => ({ name: upscaler.name }));
       } catch (error) {
         console.error('Error loading upscalers:', error);
         this.error = error.message;
