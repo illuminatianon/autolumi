@@ -55,86 +55,11 @@
       </v-list>
     </v-navigation-drawer>
 
-    <!-- Queue Panel -->
-    <v-navigation-drawer
+    <!-- Generation Queue -->
+    <generation-queue
       v-model="showQueue"
-      temporary
-      location="right"
-      width="400"
-    >
-      <v-toolbar color="primary">
-        <v-toolbar-title class="text-white">Generation Queue</v-toolbar-title>
-        <v-spacer />
-        <v-btn
-          icon="mdi-close"
-          variant="text"
-          color="white"
-          @click="showQueue = false"
-        />
-      </v-toolbar>
-
-      <v-list>
-        <template
-          v-for="job in sortedJobs"
-          :key="job.id"
-        >
-          <v-list-item>
-            <template #prepend>
-              <v-progress-circular
-                v-if="job.status === 'processing'"
-                indeterminate
-                size="24"
-                color="primary"
-                class="mr-2"
-              />
-              <v-icon
-                v-else-if="job.status === 'completed'"
-                color="success"
-                icon="mdi-check-circle"
-                class="mr-2"
-              />
-              <v-icon
-                v-else-if="job.status === 'failed'"
-                color="error"
-                icon="mdi-alert-circle"
-                class="mr-2"
-              />
-              <v-progress-circular
-                v-else
-                :rotate="-90"
-                :size="24"
-                :width="2"
-                :model-value="getQueueProgress(job)"
-                color="primary"
-                class="mr-2"
-              >
-                {{ getQueuePosition(job) }}
-              </v-progress-circular>
-            </template>
-
-            <v-list-item-title>{{ job.config.name }}</v-list-item-title>
-            <v-list-item-subtitle>{{ getJobStatus(job) }}</v-list-item-subtitle>
-
-            <template #append>
-              <v-btn
-                v-if="job.status === 'pending'"
-                icon="mdi-close"
-                variant="text"
-                size="small"
-                color="error"
-                @click="cancelJob(job)"
-              />
-            </template>
-          </v-list-item>
-        </template>
-
-        <v-list-item v-if="sortedJobs.length === 0">
-          <v-list-item-title class="text-center text-medium-emphasis">
-            No jobs in queue
-          </v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-navigation-drawer>
+      @jobs-completed="handleJobsCompleted"
+    />
 
     <v-main>
       <v-container fluid>
@@ -300,8 +225,8 @@ import { useGenerationStore } from '@/stores/generation';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
+import GenerationQueue from '@/components/GenerationQueue.vue';
 import { getServerStatus } from '@/services/api';
-import { generationService } from '@/services/generation';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
 
@@ -320,6 +245,12 @@ const queueStatusText = computed(() => {
 
 const drawer = ref(false);
 const showSettings = ref(false);
+const showQueue = ref(false);
+const completedJobs = ref([]);
+
+const handleJobsCompleted = (newJobs) => {
+  completedJobs.value.unshift(...newJobs);
+};
 
 const allImages = computed(() => {
   const images = [];
@@ -403,82 +334,6 @@ const checkAuto1111Status = async () => {
   }
 };
 
-const showQueue = ref(false);
-const queueState = ref({
-  jobs: [],
-  completedJobs: [],
-});
-
-const pollQueueStatus = async () => {
-  try {
-    const status = await generationService.getQueueStatus();
-    if (!status) {
-      console.warn('Received empty queue status');
-      return;
-    }
-
-    // Check if the response is HTML (incorrect response)
-    if (typeof status === 'string' && status.includes('<!DOCTYPE html>')) {
-      console.error('Received HTML instead of JSON from queue status endpoint');
-      return;
-    }
-
-    queueState.value = status;
-
-    // Update completedJobs with any new completed jobs
-    const newCompleted = (status.jobs || []).filter(job =>
-      job.status === 'completed' &&
-      !completedJobs.value.some(existing => existing.id === job.id),
-    );
-
-    if (newCompleted.length > 0) {
-      completedJobs.value.unshift(...newCompleted);
-    }
-  } catch (error) {
-    console.error('Error polling queue status:', error);
-  }
-};
-
-const sortedJobs = computed(() => queueState.value?.jobs || []);
-
-const getQueuePosition = (job) => {
-  if (job.status !== 'pending') return '';
-  const pending = queueState.value?.jobs?.filter(j => j.status === 'pending') || [];
-  return pending.findIndex(j => j.id === job.id) + 1;
-};
-
-const getQueueProgress = (job) => {
-  if (job.status !== 'pending') return 0;
-  const position = getQueuePosition(job);
-  const total = queueState.value?.jobs?.filter(j => j.status === 'pending')?.length || 0;
-  return total > 0 ? ((total - position + 1) / total) * 100 : 0;
-};
-
-const getJobStatus = (job) => {
-  switch (job.status) {
-    case 'pending':
-      return `Queued (#${getQueuePosition(job)})`;
-    case 'processing':
-      return 'Generating...';
-    case 'completed':
-      return 'Completed';
-    case 'failed':
-      return `Failed: ${job.error}`;
-    default:
-      return job.status;
-  }
-};
-
-const cancelJob = async (job) => {
-  try {
-    await generationService.cancelJob(job.id);
-    // The next queue status poll will update the UI
-  } catch (error) {
-    console.error('Error canceling job:', error);
-    // TODO: Show error notification
-  }
-};
-
 const imageDialog = ref({
   show: false,
   image: null,
@@ -511,8 +366,6 @@ async function handleUpscale(image) {
     selectedImage.value = null;
   }
 }
-
-const completedJobs = ref([]);
 
 const editConfig = async (config) => {
   configDialog.value = {
@@ -547,24 +400,15 @@ const recentImages = computed(() => {
 
 onMounted(async () => {
   try {
-    // Initial checks
     await checkAuto1111Status();
     await configStore.fetchConfigs();
 
-    // Start polling for queue status
-    const pollInterval = setInterval(pollQueueStatus, 5000);
-
-    // Start polling for server status
+    // Start polling for server status only (queue polling is handled by GenerationQueue component)
     const statusInterval = setInterval(checkAuto1111Status, 5000);
 
-    // Clean up intervals on component unmount
     onUnmounted(() => {
-      clearInterval(pollInterval);
       clearInterval(statusInterval);
     });
-
-    // Initial queue status check
-    await pollQueueStatus();
   } catch (error) {
     console.error('Error during initialization:', error);
     handleError(error);
