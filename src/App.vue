@@ -257,21 +257,37 @@ onUnmounted(() => {
       <!-- Queue Status -->
       <v-tooltip location="bottom">
         <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            icon
+
+          <v-badge
+
+            :content="queueStatus.count.toString()"
             :color="queueStatus.color"
-            @click="showQueue = true"
+            location="top end"
           >
-            <v-icon :icon="queueStatus.icon" />
-            <v-badge
-              v-if="queueStatus.count > 0"
-              :content="queueStatus.count.toString()"
-              color="primary"
+            <v-btn
+              v-bind="props"
+              :icon="queueStatus.count > 0 ? 'mdi-animation-play' : 'mdi-check-circle'"
+              :color="queueStatus.color"
+              class="position-relative"
+              @click="showQueue = true"
             />
-          </v-btn>
+          </v-badge>
         </template>
-        <div class="text-pre-wrap">{{ queueTooltipContent }}</div>
+        <div class="text-pre-wrap">
+          <template v-if="queueStatus.count > 0">
+            Active Generations:
+            <div
+              v-for="job in generationStore.runningConfigs"
+              :key="job.id"
+              class="pl-2"
+            >
+              • {{ job.config.name }}: {{ job.status === 'processing' ? 'Generating' : 'Queued' }}
+            </div>
+          </template>
+          <template v-else>
+            No active generations
+          </template>
+        </div>
       </v-tooltip>
 
       <!-- App Settings -->
