@@ -1,3 +1,52 @@
+<script setup>
+import { onMounted } from 'vue';
+import { useConfigStore } from '@/stores/config';
+import { useGenerationStore } from '@/stores/generation';
+import { storeToRefs } from 'pinia';
+import { useWebSocketStore } from '@/stores/websocket';
+
+const configStore = useConfigStore();
+const generationStore = useGenerationStore();
+
+const { configs } = storeToRefs(configStore);
+const { activeConfigs } = storeToRefs(generationStore);
+
+const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config', 'error']);
+
+onMounted(async () => {
+  try {
+    const wsStore = useWebSocketStore();
+    await wsStore.ensureConnection();
+    await configStore.fetchConfigs();
+  } catch (error) {
+    console.error('Error fetching configs:', error);
+    emit('error', error);
+  }
+});
+
+const isConfigActive = (configId) => generationStore.isConfigActive(configId);
+
+const getConfigStatus = (configId) => {
+  if (!isConfigActive(configId)) return '';
+  const config = activeConfigs.value.get(configId);
+  if (!config) return '';
+  return `Runs: ${config.completedRuns || 0} | Failures: ${config.failedRuns || 0}`;
+};
+
+const toggleConfig = async (config) => {
+  try {
+    if (isConfigActive(config.id)) {
+      await generationStore.stopConfig(config.id);
+    } else {
+      await generationStore.startConfig(config);
+    }
+  } catch (error) {
+    console.error('Error toggling config:', error);
+    emit('error', error);
+  }
+};
+</script>
+
 <template>
   <v-card>
     <v-card-title class="d-flex align-center justify-space-between">
@@ -76,52 +125,3 @@
     </v-card-text>
   </v-card>
 </template>
-
-<script setup>
-import { onMounted } from 'vue';
-import { useConfigStore } from '@/stores/config';
-import { useGenerationStore } from '@/stores/generation';
-import { storeToRefs } from 'pinia';
-import { useWebSocketStore } from '@/stores/websocket';
-
-const configStore = useConfigStore();
-const generationStore = useGenerationStore();
-
-const { configs } = storeToRefs(configStore);
-const { activeConfigs } = storeToRefs(generationStore);
-
-const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config', 'error']);
-
-onMounted(async () => {
-  try {
-    const wsStore = useWebSocketStore();
-    await wsStore.ensureConnection();
-    await configStore.fetchConfigs();
-  } catch (error) {
-    console.error('Error fetching configs:', error);
-    emit('error', error);
-  }
-});
-
-const isConfigActive = (configId) => generationStore.isConfigActive(configId);
-
-const getConfigStatus = (configId) => {
-  if (!isConfigActive(configId)) return '';
-  const config = activeConfigs.value.get(configId);
-  if (!config) return '';
-  return `Runs: ${config.completedRuns || 0} | Failures: ${config.failedRuns || 0}`;
-};
-
-const toggleConfig = async (config) => {
-  try {
-    if (isConfigActive(config.id)) {
-      await generationStore.stopConfig(config.id);
-    } else {
-      await generationStore.startConfig(config);
-    }
-  } catch (error) {
-    console.error('Error toggling config:', error);
-    emit('error', error);
-  }
-};
-</script>
