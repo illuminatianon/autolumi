@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import logger from './logger.js';
@@ -10,7 +8,6 @@ export class QueueManager {
     this.imageManager = imageManager;
     this.activeConfigs = new Map(); // Stores running configs by ID
     this.queue = [];                // Array of config IDs in order
-    this.currentJob = null;
     this.processing = false;
     this.interval = null;
   }
