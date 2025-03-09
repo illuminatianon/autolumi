@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-const WS_URL = `ws://${window.location.hostname}:3001`;
+const WS_PORT = import.meta.env.PROD ? window.location.port : '3001';
 
 export const wsState = ref({
   connected: false,
@@ -17,39 +17,89 @@ class WebSocketService {
     this.pendingRequests = new Map();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.connectPromise = null;
+    this.isConnected = false;
+  }
+
+  async waitForConnection(timeout = 5000) {
+    if (this.isConnected) return true;
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Connection timeout'));
+      }, timeout);
+
+      const checkConnection = () => {
+        if (this.isConnected) {
+          clearTimeout(timeoutId);
+          resolve(true);
+        } else if (this.ws?.readyState === WebSocket.CONNECTING) {
+          setTimeout(checkConnection, 100);
+        } else {
+          clearTimeout(timeoutId);
+          reject(new Error('Connection failed'));
+        }
+      };
+
+      checkConnection();
+    });
   }
 
   async connect() {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      this.isConnected = true;
       return;
     }
 
     return new Promise((resolve, reject) => {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const host = `${window.location.hostname}:${WS_PORT}`;
+        const wsUrl = `${protocol}//${host}/ws`;
 
+        console.log('Connecting to WebSocket at:', wsUrl);
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
+          console.log('WebSocket connection established');
           this.reconnectAttempts = 0;
+          this.isConnected = true;
+          wsState.value.connected = true;
           this.setupMessageHandler();
           resolve();
         };
 
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error);
+          wsState.value.connected = false;
+          this.connectPromise = null;
           reject(error);
         };
 
         this.ws.onclose = () => {
+          console.log('WebSocket connection closed'); // Debug log
+          wsState.value.connected = false;
           this.handleDisconnect();
+          this.connectPromise = null;
         };
+
+        // Add connection timeout
+        setTimeout(() => {
+          if (this.ws.readyState !== WebSocket.OPEN) {
+            this.ws.close();
+            this.connectPromise = null;
+            reject(new Error('WebSocket connection timeout'));
+          }
+        }, 5000);
+
       } catch (error) {
         console.error('WebSocket connection error:', error);
+        this.connectPromise = null;
         reject(error);
       }
     });
+
+    return this.connectPromise;
   }
 
   setupMessageHandler() {
@@ -61,8 +111,8 @@ class WebSocketService {
           const { resolve, reject } = this.pendingRequests.get(message.requestId);
           this.pendingRequests.delete(message.requestId);
 
-          if (message.error) {
-            reject(new Error(message.error));
+          if (message.type === 'error') {
+            reject(new Error(message.data.message));
           } else {
             resolve(message.data);
           }
@@ -74,22 +124,18 @@ class WebSocketService {
   }
 
   async sendRequest(type, data = null) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket is not connected');
-    }
+    await this.waitForConnection();
 
     const requestId = this.nextRequestId++;
 
     return new Promise((resolve, reject) => {
-      // Set up timeout
       const timeoutId = setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           this.pendingRequests.delete(requestId);
           reject(new Error('WebSocket request timed out'));
         }
-      }, 30000); // 30 second timeout
+      }, 30000);
 
-      // Store the promise callbacks
       this.pendingRequests.set(requestId, {
         resolve: (data) => {
           clearTimeout(timeoutId);
@@ -101,7 +147,6 @@ class WebSocketService {
         },
       });
 
-      // Send the request
       this.ws.send(JSON.stringify({
         type,
         requestId,
@@ -110,81 +155,24 @@ class WebSocketService {
     });
   }
 
+  async checkServerStatus() {
+    return this.sendRequest('getServerStatus');
+  }
+
   handleDisconnect() {
-    // Clear all pending requests
     for (const { reject } of this.pendingRequests.values()) {
       reject(new Error('WebSocket disconnected'));
     }
     this.pendingRequests.clear();
 
-    // Attempt to reconnect if we haven't exceeded max attempts
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 5000);
+      console.log(`Attempting to reconnect in ${delay}ms...`); // Debug log
       setTimeout(() => {
         this.connect().catch(console.error);
-      }, 1000 * Math.min(this.reconnectAttempts, 5)); // Exponential backoff up to 5 seconds
+      }, delay);
     }
-  }
-
-  // API methods
-  async getModels() {
-    return this.sendRequest('getModels');
-  }
-
-  async getSamplers() {
-    return this.sendRequest('getSamplers');
-  }
-
-  async getUpscalers() {
-    return this.sendRequest('getUpscalers');
-  }
-
-  async getLatentUpscaleModes() {
-    return this.sendRequest('getLatentUpscaleModes');
-  }
-
-  async setModel(model_name) {
-    return this.sendRequest('setModel', { model_name });
-  }
-
-  async getConfigs() {
-    return this.sendRequest('getConfigs');
-  }
-
-  async addConfig(config) {
-    return this.sendRequest('addConfig', config);
-  }
-
-  async updateConfig(name, config) {
-    return this.sendRequest('updateConfig', { name, config });
-  }
-
-  async deleteConfig(name) {
-    return this.sendRequest('deleteConfig', { name });
-  }
-
-  async startGeneration(config) {
-    return this.sendRequest('startGeneration', config);
-  }
-
-  async stopGeneration(configId) {
-    return this.sendRequest('stopGeneration', { configId });
-  }
-
-  async queueTxt2img(config) {
-    return this.sendRequest('queueTxt2img', config);
-  }
-
-  async queueUpscale(imagePath, config) {
-    return this.sendRequest('queueUpscale', { imagePath, config });
-  }
-
-  async cancelJob(jobId) {
-    return this.sendRequest('cancelJob', { jobId });
-  }
-
-  async checkServerStatus() {
-    return this.sendRequest('getServerStatus');
   }
 }
 

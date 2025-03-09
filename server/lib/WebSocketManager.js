@@ -8,15 +8,22 @@ export class WebSocketManager {
   }
 
   initialize(server) {
-    this.wss = new WebSocketServer({ server });
+    this.wss = new WebSocketServer({
+      server,
+      path: '/ws',  // Add explicit path
+    });
 
-    this.wss.on('connection', (ws) => {
-      logger.info('Client connected to WebSocket');
+    this.wss.on('connection', (ws, request) => {
+      logger.info('Client connected to WebSocket', {
+        ip: request.socket.remoteAddress,
+      });
+
       this.clients.add(ws);
 
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data);
+          logger.debug('Received WebSocket message:', message); // Add debug logging
           await this.handleMessage(ws, message);
         } catch (error) {
           logger.error('Error handling WebSocket message:', error);
@@ -29,10 +36,24 @@ export class WebSocketManager {
         this.clients.delete(ws);
       });
 
-      ws.on('error', (error) => {
-        logger.error('WebSocket error:', error);
+      // Add ping/pong to keep connection alive
+      ws.isAlive = true;
+      ws.on('pong', () => {
+        ws.isAlive = true;
       });
     });
+
+    // Set up ping interval
+    setInterval(() => {
+      this.wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+          logger.info('Terminating inactive WebSocket connection');
+          return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+      });
+    }, 30000);
   }
 
   registerHandler(type, handler) {

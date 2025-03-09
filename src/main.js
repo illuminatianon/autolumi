@@ -6,13 +6,9 @@
 
 // Components
 import App from './App.vue';
-
-// Composables
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
-
-// Plugins
 import { registerPlugins } from '@/plugins';
 import { useWebSocketStore } from './stores/websocket';
 
@@ -25,8 +21,8 @@ app.use(pinia);
 // Register plugins
 registerPlugins(app);
 
-// Initialize WebSocket store
+// Initialize WebSocket connection before mounting
 const wsStore = useWebSocketStore();
-wsStore.connect();
+await wsStore.connect();
 
 app.mount('#app');

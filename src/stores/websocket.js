@@ -1,34 +1,35 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import { webSocketService } from '@/services/websocket';
+import { webSocketService, wsState } from '@/services/websocket';
 
-export const useWebSocketStore = defineStore('websocket', () => {
-  const connected = ref(false);
-  const queueState = ref(null);
+const WS_PORT = import.meta.env.PROD ? window.location.port : '3001';
+const WS_URL = `ws://${window.location.hostname}:${WS_PORT}/ws`;
 
-  async function connect() {
-    try {
-      await webSocketService.connect();
-      connected.value = true;
-    } catch (error) {
-      connected.value = false;
-      throw error;
-    }
-  }
+export const useWebSocketStore = defineStore('websocket', {
+  state: () => ({
+    connected: false,
+    error: null,
+  }),
 
-  function handleQueueUpdate(data) {
-    queueState.value = data;
-  }
+  actions: {
+    async connect() {
+      try {
+        await webSocketService.connect();
+        this.connected = true;
+        this.error = null;
+      } catch (error) {
+        this.connected = false;
+        this.error = error.message;
+        throw error;
+      }
+    },
 
-  async function sendRequest(type, data = null) {
-    return webSocketService.sendRequest(type, data);
-  }
-
-  return {
-    connected,
-    queueState,
-    connect,
-    sendRequest,
-    handleQueueUpdate,
-  };
+    async sendRequest(type, data = null) {
+      try {
+        return await webSocketService.sendRequest(type, data);
+      } catch (error) {
+        this.error = error.message;
+        throw error;
+      }
+    },
+  },
 });

@@ -204,26 +204,16 @@ let statusInterval;
 
 const initializeApp = async () => {
   try {
-    console.log('Initializing app...'); // Debug log
+    console.log('Initializing app...');
 
-    // Connect WebSocket first
-    await wsStore.connect();
-    console.log('WebSocket connected'); // Debug log
-
-    // Wait a bit to ensure connection is established
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Then fetch configs and check status
+    // WebSocket is already connected from main.js
+    // Just fetch configs and check status
     await configStore.fetchConfigs();
-    console.log('Configs fetched:', configStore.configs); // Debug log
-
     await checkAuto1111Status();
-    console.log('Auto1111 status checked'); // Debug log
 
     // Start polling for server status
     statusInterval = setInterval(checkAuto1111Status, 5000);
   } catch (error) {
-    console.error('Error initializing app:', error); // Debug log
     handleError(error);
   }
 };

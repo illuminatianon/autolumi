@@ -1,7 +1,13 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useConfigStore } from '@/stores/config';
-import { storeToRefs } from 'pinia';
+import { useWebSocketStore } from '@/stores/websocket';
+import {
+  getAvailableModels,
+  getAvailableSamplers,
+  getLatentUpscaleModes,
+  getUpscalers,
+} from '@/services/api';
 
 const props = defineProps({
   config: {
@@ -13,10 +19,14 @@ const props = defineProps({
 const emit = defineEmits(['save', 'error', 'cancel']);
 
 const configStore = useConfigStore();
-const { models, samplers, upscalers, hrUpscalers, loading } = storeToRefs(configStore);
-
+const wsStore = useWebSocketStore();
 const form = ref(null);
+const loading = ref(false);
 const isEditing = computed(() => !!props.config);
+const samplers = ref([]);
+const models = ref([]);
+const upscalers = ref([]);
+const hrUpscalers = ref([]);
 
 const defaultForm = ref({
   name: '',
@@ -44,17 +54,33 @@ const formData = ref({ ...defaultForm.value });
 
 const validateUniqueName = (value) => {
   if (!value) return true;
-  return configStore.isNameUnique(value, props.config) || 'Configuration name must be unique';
+  const existing = configStore.getConfigByName(value);
+  if (existing && (!props.config || existing.name !== props.config.name)) {
+    return 'Configuration name must be unique';
+  }
+  return true;
+};
+
+const resetForm = () => {
+  if (isEditing.value) {
+    formData.value = { ...props.config };
+  } else {
+    formData.value = { ...defaultForm.value };
+  }
+  form.value?.resetValidation();
 };
 
 const handleSubmit = async () => {
   const isValid = await form.value?.validate();
 
   if (isValid?.valid) {
+    loading.value = true;
     try {
       emit('save', { ...formData.value });
     } catch (error) {
       emit('error', error);
+    } finally {
+      loading.value = false;
     }
   }
 };
@@ -63,45 +89,94 @@ const handleCancel = () => {
   emit('cancel');
 };
 
+const loadModels = async () => {
+  try {
+    const response = await getAvailableModels();
+    models.value = response;
+
+    // Set default if none selected
+    if (!formData.value.model && response.length > 0) {
+      formData.value.model = response[0].title;
+    }
+  } catch (error) {
+    console.error('Error loading models:', error);
+    emit('error', error);
+  }
+};
+
+const loadSamplers = async () => {
+  try {
+    const response = await getAvailableSamplers();
+    samplers.value = response;
+
+    // Set default if none selected
+    if (!formData.value.sampler_name && response.length > 0) {
+      formData.value.sampler_name = response[0];
+    }
+  } catch (error) {
+    console.error('Error loading samplers:', error);
+    emit('error', error);
+  }
+};
+
+const loadUpscalers = async () => {
+  try {
+    const [latentModes, upscalerResponse] = await Promise.all([
+      getLatentUpscaleModes(),
+      getUpscalers(),
+    ]);
+
+    // Regular upscalers for the upscale job
+    upscalers.value = upscalerResponse;
+
+    // Combine both types for hires.fix upscaler selection
+    hrUpscalers.value = [
+      ...latentModes.map(m => m.name),
+      ...upscalerResponse.map(u => u.name),
+    ];
+
+    // Set defaults if none selected
+    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
+      formData.value.hr_upscaler = hrUpscalers.value[0];
+    }
+    if (!formData.value.upscale_upscaler && upscalerResponse.length > 0) {
+      formData.value.upscale_upscaler = upscalerResponse[0].name;
+    }
+  } catch (error) {
+    console.error('Error loading upscalers:', error);
+    emit('error', error);
+  }
+};
+
 const updateSteps = (value) => {
   formData.value.steps = value;
   formData.value.hr_second_pass_steps = value;
 };
 
 onMounted(async () => {
+  loading.value = true;
   try {
-    // Load all options in parallel
-    await Promise.all([
-      configStore.loadModelOptions(),
-      configStore.loadSamplerOptions(),
-      configStore.loadUpscalerOptions(),
-    ]);
-
-    // Get defaults
-    const defaults = await configStore.getDefaultConfig();
+    // Get defaults from backend via WebSocket
+    const defaults = await wsStore.sendRequest('getDefaultConfig');
     defaultForm.value = {
-      ...defaultForm.value,
+      name: '',
+      model: '',
       ...defaults,
     };
 
-    // Set initial form data
+    // Update formData with either config or new defaults
     formData.value = props.config ? { ...props.config } : { ...defaultForm.value };
 
-    // Set default values if none selected
-    if (!formData.value.model && models.value.length > 0) {
-      formData.value.model = models.value[0].title;
-    }
-    if (!formData.value.sampler_name && samplers.value.length > 0) {
-      formData.value.sampler_name = samplers.value[0];
-    }
-    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
-      formData.value.hr_upscaler = hrUpscalers.value[0];
-    }
-    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
-      formData.value.upscale_upscaler = upscalers.value[0].name;
-    }
+    // Then load the rest
+    await Promise.all([
+      loadModels(),
+      loadSamplers(),
+      loadUpscalers(),
+    ]);
   } catch (error) {
     emit('error', error);
+  } finally {
+    loading.value = false;
   }
 });
 </script>
@@ -225,6 +300,7 @@ onMounted(async () => {
           </v-col>
         </v-row>
 
+        <!-- Hires.fix Settings -->
         <v-divider class="my-4" />
         <h3 class="text-h6 mb-2">Hiresfix Settings</h3>
 
@@ -325,8 +401,6 @@ onMounted(async () => {
             <v-select
               v-model="formData.upscale_upscaler"
               :items="upscalers"
-              item-title="name"
-              item-value="name"
               label="Upscaler"
               :rules="[v => !!v || 'Upscaler is required']"
             />
@@ -353,7 +427,6 @@ onMounted(async () => {
           color="error"
           variant="text"
           @click="handleCancel"
-          :disabled="loading"
         >
           Cancel
         </v-btn>
@@ -362,7 +435,7 @@ onMounted(async () => {
           type="submit"
           :loading="loading"
         >
-          {{ isEditing ? 'Update' : 'Save' }}
+          {{ isEditing ? 'Update' : 'Create' }}
         </v-btn>
       </v-card-actions>
     </v-form>
