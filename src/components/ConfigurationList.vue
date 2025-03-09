@@ -48,8 +48,8 @@ const toggleConfig = async (config) => {
 </script>
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center justify-space-between">
+  <v-card class="configuration-list-container">
+    <v-card-title class="sticky-header d-flex align-center justify-space-between">
       <span>Generation Configs</span>
       <v-btn
         color="primary"
@@ -60,7 +60,7 @@ const toggleConfig = async (config) => {
       </v-btn>
     </v-card-title>
 
-    <v-card-text>
+    <v-card-text class="scrollable-content">
       <v-alert
         v-if="configStore.error"
         type="error"
@@ -79,32 +79,48 @@ const toggleConfig = async (config) => {
           v-for="config in configs"
           :key="config.id"
           :title="config.name"
-          :subtitle="config.prompt"
         >
+          <template #prepend>
+            <v-btn
+              :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
+              :color="isConfigActive(config.id) ? 'error' : 'success'"
+              variant="text"
+              @click="toggleConfig(config)"
+            />
+          </template>
           <template #append>
-            <v-btn-group>
-              <v-btn
-                :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
-                :color="isConfigActive(config.id) ? 'error' : 'success'"
-                @click="toggleConfig(config)"
-              />
-              <v-btn
-                icon="mdi-pencil"
-                @click="$emit('edit-config', config)"
-              />
-              <v-btn
-                icon="mdi-content-copy"
-                @click="$emit('duplicate-config', config)"
-              />
-              <v-btn
-                icon="mdi-delete"
-                @click="$emit('delete-config', config)"
-              />
-            </v-btn-group>
+            <v-menu>
+              <template #activator="{ props }">
+                <v-btn
+                  icon="mdi-dots-vertical"
+                  v-bind="props"
+                  variant="text"
+                />
+              </template>
+
+              <v-list>
+                <v-list-item
+                  prepend-icon="mdi-pencil"
+                  title="Edit"
+                  @click="$emit('edit-config', config)"
+                />
+                <v-list-item
+                  prepend-icon="mdi-content-copy"
+                  title="Duplicate"
+                  @click="$emit('duplicate-config', config)"
+                />
+                <v-list-item
+                  prepend-icon="mdi-delete"
+                  title="Delete"
+                  color="error"
+                  @click="$emit('delete-config', config)"
+                />
+              </v-list>
+            </v-menu>
           </template>
           <template #subtitle>
             <div class="text-caption">
-              {{ config.prompt }}
+              {{ config.model }} {{ config.hr_resize_x }} x {{ config.hr_resize_y }}
             </div>
             <div
               v-if="isConfigActive(config.id)"
@@ -125,3 +141,36 @@ const toggleConfig = async (config) => {
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped>
+.configuration-list-container {
+  height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--v-theme-surface);
+}
+
+.scrollable-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+/* Ensure list items don't get too tall with long prompts */
+:deep(.v-list-item) {
+  .text-caption {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+</style>
