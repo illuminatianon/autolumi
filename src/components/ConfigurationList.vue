@@ -140,7 +140,6 @@ const toggleConfig = async (config) => {
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: var(--v-theme-surface);
 }
 
 .scrollable-content {
@@ -148,17 +147,5 @@ const toggleConfig = async (config) => {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px;
-}
-
-/* Ensure list items don't get too tall with long prompts */
-:deep(.v-list-item) {
-  .text-caption {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 </style>
