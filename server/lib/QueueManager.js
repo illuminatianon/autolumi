@@ -216,10 +216,25 @@ export class QueueManager {
   async processPriorityTask(task) {
     try {
       if (task.type === 'upscale') {
-        const result = await this.auto1111.upscale({
-          image_path: task.imagePath,
-          ...task.config,
-        });
+        // Read image metadata to get prompts
+        const metadata = await this.imageManager.readImageMetadata(task.imagePath);
+
+        // Prepare img2img parameters with original prompts
+        const img2imgParams = {
+          init_images: [task.imagePath],
+          prompt: metadata.prompt || '',
+          negative_prompt: metadata.negative_prompt || '',
+          script_name: 'SD upscale',
+          script_args: [
+            // Add upscale script parameters
+            task.config.upscale_upscaler || '',
+            task.config.upscale_scale_factor || 2.0,
+            task.config.upscale_denoising_strength || 0.15,
+            task.config.upscale_tile_overlap || 64,
+          ],
+        };
+
+        const result = await this.auto1111.img2img(img2imgParams);
 
         const savedPaths = await this.imageManager.saveImages(
           'upscaled',
@@ -232,6 +247,10 @@ export class QueueManager {
             taskId: task.id,
             images: savedPaths,
             timestamp: Date.now(),
+            metadata: {
+              prompt: metadata.prompt,
+              negative_prompt: metadata.negative_prompt,
+            },
           },
         });
       }
@@ -240,6 +259,7 @@ export class QueueManager {
         taskId: task.id,
         type: task.type,
         error: error.message,
+        imagePath: task.imagePath,
       });
 
       this.webSocketManager.broadcast({

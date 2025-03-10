@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import logger from './logger.js';
+import sharp from 'sharp';
 
 export class ImageManager {
   constructor(outputDir) {
@@ -79,5 +80,32 @@ export class ImageManager {
       savedPaths.push(savedPath);
     }
     return savedPaths;
+  }
+
+  async readImageMetadata(imagePath) {
+    try {
+      // Read PNG metadata using sharp or another image processing library
+      const metadata = await sharp(imagePath).metadata();
+
+      // Extract parameters from PNG text chunks
+      // This depends on how AUTO1111 stores the metadata
+      // You might need to adjust this based on the actual format
+      const parameters = metadata.parameters || '';
+
+      // Parse the parameters string to extract prompts
+      const prompt = parameters.split('Negative prompt:')[0].trim();
+      const negative_prompt = parameters.split('Negative prompt:')[1]?.split('Steps:')[0]?.trim() || '';
+
+      return {
+        prompt,
+        negative_prompt,
+      };
+    } catch (error) {
+      logger.error('Failed to read image metadata:', error);
+      return {
+        prompt: '',
+        negative_prompt: '',
+      };
+    }
   }
 }
