@@ -7,7 +7,8 @@ export class QueueManager {
     this.imageManager = imageManager;
     this.webSocketManager = webSocketManager;
     this.activeConfigs = new Map();
-    this.queue = [];
+    this.configQueue = [];
+    this.priorityQueue = [];
     this.processing = false;
     this.interval = null;
   }
@@ -30,27 +31,37 @@ export class QueueManager {
   }
 
   async processQueue() {
-    if (this.processing || this.queue.length === 0) {
+    if (this.processing) {
       return;
     }
 
     try {
       this.processing = true;
-      const configId = this.queue[0];
-      const configEntry = this.activeConfigs.get(configId);
 
-      if (!configEntry) {
-        this.queue.shift(); // Remove invalid config from queue
+      // Process priority tasks (like upscales) first
+      if (this.priorityQueue.length > 0) {
+        const task = this.priorityQueue.shift();
+        await this.processPriorityTask(task);
         return;
       }
-      logger.info('Proessing config: %s', configEntry.config.config.name);
 
-      await this.processGeneration(configEntry);
+      // Process continuous configs if no priority tasks
+      if (this.configQueue.length > 0) {
+        const configId = this.configQueue[0];
+        const configEntry = this.activeConfigs.get(configId);
 
-      // Move the config to the end of the queue for round-robin processing
-      this.queue.shift();
-      this.queue.push(configId);
+        if (!configEntry) {
+          this.configQueue.shift();
+          return;
+        }
 
+        logger.info('Processing config: %s', configEntry.config.config.name);
+        await this.processGeneration(configEntry);
+
+        // Move to end of queue for round-robin
+        this.configQueue.shift();
+        this.configQueue.push(configId);
+      }
     } catch (error) {
       logger.error('Error processing queue:', error);
     } finally {
@@ -71,7 +82,7 @@ export class QueueManager {
     };
 
     this.activeConfigs.set(configId, configEntry);
-    this.queue.push(configId);
+    this.configQueue.push(configId);
 
     this.broadcastQueueUpdate();
     return configEntry;
@@ -89,9 +100,9 @@ export class QueueManager {
     this.broadcastConfigUpdate(configEntry);
 
     this.activeConfigs.delete(configId);
-    const queueIndex = this.queue.indexOf(configId);
+    const queueIndex = this.configQueue.indexOf(configId);
     if (queueIndex !== -1) {
-      this.queue.splice(queueIndex, 1);
+      this.configQueue.splice(queueIndex, 1);
     }
 
     this.broadcastQueueUpdate();
@@ -116,7 +127,8 @@ export class QueueManager {
         failedRuns: config.failedRuns,
         lastRun: config.lastRun,
       })),
-      queueLength: this.queue.length,
+      configQueueLength: this.configQueue.length,
+      priorityQueueLength: this.priorityQueue.length,
       processing: this.processing,
     };
   }
@@ -184,5 +196,59 @@ export class QueueManager {
       lastImages: configEntry.lastImages,
       config: configEntry.config,  // Include the full config
     });
+  }
+
+  async queueUpscale(imagePath, config) {
+    const taskId = uuidv4();
+    const task = {
+      id: taskId,
+      type: 'upscale',
+      imagePath,
+      config,
+      addedAt: Date.now(),
+    };
+
+    this.priorityQueue.push(task);
+    this.broadcastQueueUpdate();
+    return task;
+  }
+
+  async processPriorityTask(task) {
+    try {
+      if (task.type === 'upscale') {
+        const result = await this.auto1111.upscale({
+          image_path: task.imagePath,
+          ...task.config,
+        });
+
+        const savedPaths = await this.imageManager.saveImages(
+          'upscaled',
+          result.images,
+        );
+
+        this.webSocketManager.broadcast({
+          type: 'upscaleComplete',
+          data: {
+            taskId: task.id,
+            images: savedPaths,
+            timestamp: Date.now(),
+          },
+        });
+      }
+    } catch (error) {
+      logger.error('Error processing priority task:', {
+        taskId: task.id,
+        type: task.type,
+        error: error.message,
+      });
+
+      this.webSocketManager.broadcast({
+        type: 'taskError',
+        data: {
+          taskId: task.id,
+          error: error.message,
+        },
+      });
+    }
   }
 }
