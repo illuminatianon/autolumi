@@ -26,13 +26,6 @@ onMounted(async () => {
 
 const isConfigActive = (configId) => generationStore.isConfigActive(configId);
 
-const getConfigStatus = (configId) => {
-  if (!isConfigActive(configId)) return '';
-  const config = activeConfigs.value.get(configId);
-  if (!config) return '';
-  return `Runs: ${config.completedRuns || 0} | Failures: ${config.failedRuns || 0}`;
-};
-
 const toggleConfig = async (config) => {
   try {
     if (isConfigActive(config.id)) {
@@ -122,12 +115,6 @@ const toggleConfig = async (config) => {
             <div class="text-caption">
               {{ config.model }} {{ config.hr_resize_x }} x {{ config.hr_resize_y }}
             </div>
-            <div
-              v-if="isConfigActive(config.id)"
-              class="text-caption text-primary"
-            >
-              {{ getConfigStatus(config.id) }}
-            </div>
           </template>
         </v-list-item>
       </v-list>
@@ -168,6 +155,7 @@ const toggleConfig = async (config) => {
   .text-caption {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
