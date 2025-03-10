@@ -3,7 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import expressPino from 'express-pino-logger';
 import path from 'path';
-import env from 'dotenv';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { QueueManager } from './lib/QueueManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
@@ -14,13 +14,16 @@ import { configRouter } from './routes/config.js';
 import { generationRouter } from './routes/generation.js';
 import logger from './lib/logger.js';
 
+dotenv.config();
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = http.createServer(app);
-const port = env.PORT || 3001;
+const port = process.env.PORT || 3001;
 const webSocketManager = new WebSocketManager();
 
 // Initialize Pino logger middleware
+// noinspection JSUnusedGlobalSymbols
 const expressLogger = expressPino({
   logger,
   // Customize request logging
@@ -50,7 +53,7 @@ const expressLogger = expressPino({
 
 // Initialize services
 const auto1111Client = new Auto1111Client({
-  baseURL: env.AUTO1111_API_URL || 'http://127.0.0.1:7860',
+  baseURL: process.env.AUTO1111_API_URL || 'http://127.0.0.1:7860',
 });
 
 const dataDir = path.join(__dirname, '..', 'data');
@@ -89,6 +92,7 @@ app.use('/api/generation', generationRouter);
 
 // Error handling
 // eslint-disable-next-line no-unused-vars
+// noinspection JSUnusedLocalSymbols
 app.use((err, req, res, next) => {
   logger.error(err, 'Unhandled error');
   res.status(err.status || 500).json({
