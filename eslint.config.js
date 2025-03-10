@@ -13,11 +13,23 @@ export default [
   },
 
   js.configs.recommended,
-  ...pluginVue.configs[ 'flat/recommended' ],
+  ...pluginVue.configs['flat/recommended'],
 
   {
     rules: {
       'vue/multi-word-component-names': 'off',
+      'vue/no-deep-combinator': 'off', // Allow :deep selector
+      'vue/valid-v-deep': ['error', { // Configure :deep usage
+        modifier: true,
+      }],
+    },
+    settings: {
+      'css': {
+        // Allow Vuetify CSS custom properties
+        customProperties: {
+          '--v-theme-': true,
+        },
+      },
     },
   },
   {
