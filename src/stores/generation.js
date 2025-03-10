@@ -10,7 +10,7 @@ export const useGenerationStore = defineStore('generation', () => {
   async function startConfig(config) {
     try {
       await wsStore.sendRequest('startConfig', {
-        id: config.id,
+        id: config.id,  // Use the persistent ID
         config: config,
       });
       // Add to activeConfigs immediately for better UX
@@ -30,7 +30,7 @@ export const useGenerationStore = defineStore('generation', () => {
   async function stopConfig(configId) {
     try {
       await wsStore.sendRequest('stopConfig', { configId });
-      // Don't remove immediately - wait for server confirmation via configUpdate
+      activeConfigs.value.delete(configId);
     } catch (error) {
       console.error('Failed to stop config:', error);
       throw error;

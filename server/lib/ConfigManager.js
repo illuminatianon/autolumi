@@ -46,10 +46,13 @@ export class ConfigManager {
     if (configs.some(c => c.name === config.name)) {
       throw new Error(`Configuration "${config.name}" already exists`);
     }
+
+    // Ensure config has a persistent ID
     const configWithId = {
-      id: config.id || uuidv4(),
+      id: uuidv4(),  // Generate ID for new configs only
       ...config,
     };
+
     configs.push(configWithId);
     await this.saveConfigs(configs);
     return configWithId;
@@ -58,12 +61,19 @@ export class ConfigManager {
   async updateConfig(config) {
     const configs = await this.loadConfigs();
     const index = configs.findIndex(c => c.id === config.id);
+
     if (index === -1) {
-      throw new Error(`Configuration "${config.name}" not found`);
+      throw new Error(`Configuration with ID "${config.id}" not found`);
     }
-    configs[index] = config;
+
+    // Preserve the existing ID when updating
+    configs[index] = {
+      ...config,
+      id: configs[index].id,
+    };
+
     await this.saveConfigs(configs);
-    return config;
+    return configs[index];
   }
 
   async deleteConfig(name) {

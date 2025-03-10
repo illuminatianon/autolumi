@@ -70,9 +70,12 @@ export class QueueManager {
   }
 
   async addConfig(config) {
-    const configId = config.id || uuidv4();
+    if (!config.id) {
+      throw new Error('Configuration must have an ID');
+    }
+
     const configEntry = {
-      id: configId,
+      id: config.id,  // Use the persistent ID from the saved config
       status: 'active',
       config,
       addedAt: Date.now(),
@@ -81,8 +84,8 @@ export class QueueManager {
       failedRuns: 0,
     };
 
-    this.activeConfigs.set(configId, configEntry);
-    this.configQueue.push(configId);
+    this.activeConfigs.set(config.id, configEntry);
+    this.configQueue.push(config.id);
 
     this.broadcastQueueUpdate();
     return configEntry;
@@ -90,23 +93,18 @@ export class QueueManager {
 
   async removeConfig(configId) {
     if (!this.activeConfigs.has(configId)) {
-      throw new Error(`Config ${configId} not found`);
+      throw new Error(`Configuration ${configId} not found in active configs`);
     }
-
-    const configEntry = this.activeConfigs.get(configId);
-    configEntry.status = 'stopped';
-
-    // Broadcast the stopped status before removing
-    this.broadcastConfigUpdate(configEntry);
 
     this.activeConfigs.delete(configId);
-    const queueIndex = this.configQueue.indexOf(configId);
-    if (queueIndex !== -1) {
-      this.configQueue.splice(queueIndex, 1);
-    }
+    this.configQueue = this.configQueue.filter(id => id !== configId);
+
+    this.broadcastConfigUpdate({
+      id: configId,
+      status: 'stopped',
+    });
 
     this.broadcastQueueUpdate();
-    return true;
   }
 
   broadcastQueueUpdate() {
@@ -198,8 +196,9 @@ export class QueueManager {
     });
   }
 
+  // Keep temporary IDs for upscale tasks
   async queueUpscale(imagePath, config) {
-    const taskId = uuidv4();
+    const taskId = uuidv4();  // Temporary ID for one-time task
     const task = {
       id: taskId,
       type: 'upscale',
