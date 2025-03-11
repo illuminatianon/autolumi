@@ -146,15 +146,40 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-card :loading="loading">
-    <v-card-title>
-      <span v-if="isEditing">Edit Configuration</span>
-      <span v-else>New Configuration</span>
-    </v-card-title>
+  <v-card
+    :loading="loading"
+    class="config-form"
+  >
+    <v-toolbar
+      class="sticky-toolbar"
+      flat
+    >
+      <v-toolbar-title>
+        {{ isEditing ? 'Edit ' + config.name : 'New Configuration' }}
+      </v-toolbar-title>
+      <v-spacer />
+      <v-btn
+        variant="text"
+        color="error"
+        icon="mdi-close"
+        @click="handleCancel"
+      >
+      </v-btn>
+      <v-btn
+        variant="text"
+        icon="mdi-check"
+        class="ml-2"
+        color="success"
+        :loading="loading"
+        @click="handleSubmit"
+      >
+      </v-btn>
+    </v-toolbar>
 
     <v-form
       ref="form"
       @submit.prevent="handleSubmit"
+      class="form-content"
     >
       <v-card-text>
         <v-text-field
@@ -192,7 +217,7 @@ onMounted(async () => {
         />
 
         <v-row>
-          <v-col cols="6">
+          <v-col cols="4">
             <v-text-field
               v-model.number="formData.steps"
               label="Steps"
@@ -203,7 +228,7 @@ onMounted(async () => {
               @update:model-value="updateSteps"
             />
           </v-col>
-          <v-col cols="6">
+          <v-col cols="4">
             <v-text-field
               v-model.number="formData.cfg_scale"
               label="CFG Scale"
@@ -212,6 +237,16 @@ onMounted(async () => {
               max="30"
               step="0.5"
               :rules="[v => v >= 1 && v <= 30 || 'CFG Scale must be between 1 and 30']"
+            />
+          </v-col>
+          <v-col cols="4">
+            <v-text-field
+              v-model.number="formData.batch_size"
+              label="Batch Size"
+              type="number"
+              min="1"
+              max="8"
+              :rules="[v => v >= 1 && v <= 8 || 'Batch size must be between 1 and 8']"
             />
           </v-col>
         </v-row>
@@ -253,13 +288,9 @@ onMounted(async () => {
             />
           </v-col>
           <v-col cols="6">
-            <v-text-field
-              v-model.number="formData.batch_size"
-              label="Batch Size"
-              type="number"
-              min="1"
-              max="8"
-              :rules="[v => v >= 1 && v <= 8 || 'Batch size must be between 1 and 8']"
+            <v-select
+              v-model="formData.scheduler"
+              label="Scheduler"
             />
           </v-col>
         </v-row>
@@ -384,24 +415,26 @@ onMounted(async () => {
           </v-col>
         </v-row>
       </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          color="error"
-          variant="text"
-          @click="handleCancel"
-        >
-          Cancel
-        </v-btn>
-        <v-btn
-          color="primary"
-          type="submit"
-          :loading="loading"
-        >
-          {{ isEditing ? 'Update' : 'Create' }}
-        </v-btn>
-      </v-card-actions>
     </v-form>
   </v-card>
 </template>
+
+<style scoped>
+.config-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sticky-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: thin solid var(--v-border-color);
+}
+
+.form-content {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+</style>
