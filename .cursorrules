@@ -1,13 +1,7 @@
-CursorRules: Generation Queue for Automatic1111 Workflow
-=========================================================
-
-Overview:
-  • Build a job queue system to manage text-to-image (txt2img) generation and upscale jobs.
-  • Support batches of txt2img generation; when a user selects an image for upscale, that task is prioritized.
-
 Tech Stack:
   • Frontend: Vue 3 using the Composition API.
   • Backend: Node.js (using a popular framework such as Express).
+  - Use logger.info/etc in backend for logging, console.log/error in frontend
 
 Backend responsible for
     - calling the Automatic1111 API
@@ -16,6 +10,7 @@ Backend responsible for
     - file saving
 
 WebSocket Communication:
+ - Pinia stores uses websocket store for communication, consumers of pinia stores do not need to know about websockets
   - Use onMessage/offMessage for WebSocket event handling, NOT subscribe/unsubscribe
   - Always clean up WebSocket listeners in onUnmounted hooks
   - Message handling pattern:
@@ -38,26 +33,20 @@ Automatic1111 API Integration:
       - Extras endpoints (e.g., /sdapi/v1/extra-single-image) may also be used.
   - API returns images as base64-encoded strings; you may set flags (e.g., "save_images": true) to also save files.
 
-Queue Management & Workflow:
-  - The middleman service maintains two queues:
-      - A general generation queue (for the 8 txt2img batches).
-      - A priority queue for upscale jobs (triggered when an image is selected).
-  - The scheduler continuously polls the queues:
-      - If a priority upscale job exists, it dispatches that immediately (using img2img with upscale parameters).
-      - Otherwise, it processes the next txt2img batch.
-  - Upscale jobs include additional parameters such as:
-      - "script_name": "SD upscale"
-      - "script_args": an array
+Job Management & Workflow:
+ - Express server maintains list of configurations, and whether they are running
+ - Running jobs proceed Round Robin, until they are stopped.
+ - Maintains a secondary queue for upscale jobs, which are processed immediately when triggered, preventing standard jobs from running until that queue is empty.
+
+ - Upscale jobs include additional parameters such as:
+   - "script_name": "SD upscale"
+   - "script_args": an array
 
 Image output:
  - Output filenames: 00000.png WHERE the 5 digit number is "count(imagesInFolder)+1"
  - Results of "normal" jobs in data/output/JobName/
  - Results of "upscale" jobs in data/output/upscaled/
 
-Additional Considerations:
-  - The backend service decodes the base64 images from the API and can optionally save them or send them to the frontend.
-  - User notifications (e.g., via WebSockets or HTTP polling) can inform clients when a priority job completes.
-  - The design ensures that upscale jobs “cut in line” and are processed before waiting generation batches.
 
 Summary:
   Build a Node.js/Express middleman that:
