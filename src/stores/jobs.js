@@ -72,7 +72,16 @@ export const useJobStore = defineStore('jobs', () => {
 
   // Actions
   async function startGeneration(config) {
-    return wsStore.sendRequest('startGeneration', config);
+    const response = await wsStore.sendRequest('startGeneration', config);
+    if (response?.id) {
+      activeJobs.value.set(config.id, {
+        id: response.id,
+        configId: config.id,
+        status: 'starting',
+        config,
+      });
+    }
+    return response;
   }
 
   async function queueUpscale(imagePath, config) {
@@ -80,7 +89,8 @@ export const useJobStore = defineStore('jobs', () => {
   }
 
   async function cancelJob(jobId) {
-    return wsStore.sendRequest('cancelJob', { jobId });
+    await wsStore.sendRequest('cancelJob', { jobId });
+    activeJobs.value.delete(jobId);
   }
 
   async function refreshServerStatus() {
