@@ -69,7 +69,12 @@ const handleSubmit = async () => {
   if (isValid?.valid) {
     loading.value = true;
     try {
-      emit('save', { ...formData.value });
+      // Ensure we're passing the ID when updating
+      const configToSave = {
+        ...formData.value,
+        id: props.config?.id, // Preserve the original ID when editing
+      };
+      emit('save', configToSave);
     } catch (error) {
       emit('error', error);
     } finally {

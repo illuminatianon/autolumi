@@ -16,9 +16,14 @@ export const useConfigStore = defineStore('config', {
     getConfigByName: (state) => (name) =>
       state.configs.find(c => c.name === name),
 
+    getConfigById: (state) => (id) =>
+      state.configs.find(c => c.id === id),
+
     isNameUnique: (state) => (name, excludeConfig = null) => {
-      const existing = state.configs.find(c => c.name === name);
-      return !existing || (excludeConfig && existing.name === excludeConfig.name);
+      const existing = state.configs.find(c =>
+        c.name === name && (!excludeConfig || c.id !== excludeConfig.id),
+      );
+      return !existing;
     },
 
     hrUpscalers: (state) => [
@@ -145,11 +150,11 @@ export const useConfigStore = defineStore('config', {
       const wsStore = useWebSocketStore();
       this.loading = true;
       try {
-        // Remove the extra nesting - just send the config directly
         const updatedConfig = await wsStore.sendRequest('updateConfig', config);
-        const index = this.configs.findIndex(c => c.name === config.name);
+        const index = this.configs.findIndex(c => c.id === config.id);
         if (index !== -1) {
-          this.configs[index] = updatedConfig;
+          // Use Vue's reactivity system properly
+          this.configs[index] = { ...updatedConfig };
         }
         return updatedConfig;
       } catch (error) {

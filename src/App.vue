@@ -94,25 +94,20 @@ const showConfigDialog = (config = null) => {
 };
 
 const handleConfigSave = async (config) => {
-  try {
-    if (configDialog.value.config) {
-      await configStore.updateConfig(config);
-    } else {
-      await configStore.addConfig(config);
-    }
-    configDialog.value.show = false;
-  } catch (error) {
-    // Error is already handled by the store
+  if (configDialog.value.config) {
+    await configStore.updateConfig({
+      ...config,
+      id: configDialog.value.config.id,
+    });
+  } else {
+    await configStore.addConfig(config);
   }
+  configDialog.value.show = false;
 };
 
 const deleteConfig = async (config) => {
   if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
-    try {
-      await configStore.deleteConfig(config);
-    } catch (error) {
-      // Error is already handled by the store
-    }
+    await configStore.deleteConfig(config);
   }
 };
 
@@ -159,19 +154,13 @@ const isUpscaling = ref(false);
 async function handleUpscale(image) {
   if (isUpscaling.value) return;
 
-  try {
-    isUpscaling.value = true;
-    selectedImage.value = image;
+  isUpscaling.value = true;
+  selectedImage.value = image;
+  // Close the lightbox if open
+  imageDialog.value.show = false;
 
-    // Close the lightbox if open
-    imageDialog.value.show = false;
-  } catch (error) {
-    console.error('Failed to upscale:', error);
-    alert('Failed to upscale image: ' + error.message);
-  } finally {
-    isUpscaling.value = false;
-    selectedImage.value = null;
-  }
+  isUpscaling.value = false;
+  selectedImage.value = null;
 }
 
 const editConfig = async (config) => {
@@ -187,12 +176,7 @@ const duplicateConfig = async (config) => {
     name: `${config.name} (Copy)`,
     id: undefined, // Remove ID so a new one will be generated
   };
-
-  try {
-    await configStore.addConfig(newConfig);
-  } catch (error) {
-    handleError(error);
-  }
+  await configStore.addConfig(newConfig);
 };
 
 const handleImageClick = (image) => {
