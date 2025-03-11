@@ -122,6 +122,10 @@ function initializeWebSocketHandlers(webSocketManager, services) {
     services.auto1111.getLatentUpscaleModes(),
   );
 
+  webSocketManager.registerHandler('getSchedulers', () =>
+    services.auto1111.getSchedulers(),
+  );
+
   webSocketManager.registerHandler('setModel', ({ model_name }) =>
     services.auto1111.setModel(model_name),
   );

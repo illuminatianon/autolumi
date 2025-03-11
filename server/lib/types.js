@@ -8,6 +8,7 @@ export const DEFAULT_GENERATION_PARAMS = {
   save_images: false,
   prompt: '',
   negative_prompt: '',
+  scheduler: 'Automatic',
   // Hires.fix defaults
   hr_resize_x: 0,
   hr_resize_y: 0,

@@ -8,6 +8,7 @@ export const useConfigStore = defineStore('config', {
     samplers: [],
     upscalers: [],
     latentModes: [],
+    schedulers: [],
     loading: false,
     error: null,
   }),
@@ -75,6 +76,24 @@ export const useConfigStore = defineStore('config', {
         this.upscalers = upscalers.map(upscaler => ({ name: upscaler.name }));
       } catch (error) {
         console.error('Error loading upscalers:', error);
+        this.error = error.message;
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async loadSchedulerOptions() {
+      const wsStore = useWebSocketStore();
+      try {
+        this.loading = true;
+        const response = await wsStore.sendRequest('getSchedulers');
+        this.schedulers = response.map(scheduler => ({
+          name: scheduler.name,
+          title: scheduler.label || scheduler.name,
+        }));
+      } catch (error) {
+        console.error('Error loading schedulers:', error);
         this.error = error.message;
         throw error;
       } finally {
@@ -182,6 +201,15 @@ export const useConfigStore = defineStore('config', {
       } finally {
         this.loading = false;
       }
+    },
+
+    async loadOptions() {
+      await Promise.all([
+        this.loadModelOptions(),
+        this.loadSamplerOptions(),
+        this.loadUpscalerOptions(),
+        this.loadSchedulerOptions(),
+      ]);
     },
   },
 });

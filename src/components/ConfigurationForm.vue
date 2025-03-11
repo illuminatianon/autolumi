@@ -20,7 +20,7 @@ const loading = ref(false);
 const isEditing = computed(() => !!props.config);
 
 // Use storeToRefs for reactive store state
-const { models, samplers, upscalers, latentModes } = storeToRefs(configStore);
+const { models, samplers, upscalers, latentModes, schedulers } = storeToRefs(configStore);
 
 // Computed property for combined hrUpscalers
 const hrUpscalers = computed(() => configStore.hrUpscalers);
@@ -45,6 +45,7 @@ const defaultForm = ref({
   upscale_scale_factor: 2.5,
   upscale_upscaler: '',
   upscale_denoising_strength: 0.15,
+  scheduler: 'Automatic',
 });
 
 const formData = ref({ ...defaultForm.value });
@@ -92,35 +93,6 @@ const updateSteps = (value) => {
   formData.value.hr_second_pass_steps = value;
 };
 
-const loadOptions = async () => {
-  loading.value = true;
-  try {
-    await Promise.all([
-      configStore.loadModelOptions(),
-      configStore.loadSamplerOptions(),
-      configStore.loadUpscalerOptions(),
-    ]);
-
-    // Set defaults if none selected
-    if (!formData.value.model && models.value.length > 0) {
-      formData.value.model = models.value[0];
-    }
-    if (!formData.value.sampler_name && samplers.value.length > 0) {
-      formData.value.sampler_name = samplers.value[0];
-    }
-    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
-      formData.value.hr_upscaler = hrUpscalers.value[0];
-    }
-    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
-      formData.value.upscale_upscaler = upscalers.value[0].name;
-    }
-  } catch (error) {
-    emit('error', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
 onMounted(async () => {
   loading.value = true;
   try {
@@ -135,8 +107,25 @@ onMounted(async () => {
     // Update formData with either config or new defaults
     formData.value = props.config ? { ...props.config } : { ...defaultForm.value };
 
-    // Load all options
-    await loadOptions();
+    // Load all options using the store's method
+    await configStore.loadOptions();
+
+    // Set defaults if none selected
+    if (!formData.value.model && models.value.length > 0) {
+      formData.value.model = models.value[0];
+    }
+    if (!formData.value.sampler_name && samplers.value.length > 0) {
+      formData.value.sampler_name = samplers.value[0];
+    }
+    if (!formData.value.hr_upscaler && hrUpscalers.value.length > 0) {
+      formData.value.hr_upscaler = hrUpscalers.value[0];
+    }
+    if (!formData.value.upscale_upscaler && upscalers.value.length > 0) {
+      formData.value.upscale_upscaler = upscalers.value[0].name;
+    }
+    if (!formData.value.scheduler && schedulers.value.length > 0) {
+      formData.value.scheduler = schedulers.value[0].name;
+    }
   } catch (error) {
     emit('error', error);
   } finally {
@@ -290,7 +279,13 @@ onMounted(async () => {
           <v-col cols="6">
             <v-select
               v-model="formData.scheduler"
+              :items="schedulers"
+              item-title="title"
+              item-value="name"
               label="Scheduler"
+              :loading="!schedulers.length"
+              hint="Controls how the denoising process progresses"
+              persistent-hint
             />
           </v-col>
         </v-row>

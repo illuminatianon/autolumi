@@ -42,9 +42,21 @@ export class Auto1111Client {
 
   async txt2img(params) {
     try {
-      const response = await this.client.post('/sdapi/v1/txt2img', params);
+      // Inject hard-coded parameters
+      const enhancedParams = {
+        ...params,
+        enable_hr: true,  // Enable Hires.fix
+      };
+
+      logger.info('Sending txt2img request with params:', enhancedParams);
+      const response = await this.client.post('/sdapi/v1/txt2img', enhancedParams);
       return response.data;
     } catch (error) {
+      logger.error('Auto1111 txt2img error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       throw new Error(`Failed to generate image: ${error.message}`);
     }
   }
@@ -109,6 +121,16 @@ export class Auto1111Client {
         status: 'error',
         message: 'Auto1111 server not available',
       };
+    }
+  }
+
+  async getSchedulers() {
+    try {
+      const response = await this.client.get('/sdapi/v1/schedulers');
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to get schedulers:', error);
+      throw error;
     }
   }
 }
