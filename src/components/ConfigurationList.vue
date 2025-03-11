@@ -23,7 +23,7 @@ onMounted(async () => {
 const toggleConfig = async (config) => {
   try {
     if (configStore.isConfigActive(config.id)) {
-      await jobStore.cancelJobByConfigId(config.id);
+      await jobStore.cancelJob(config.id);
     } else {
       await jobStore.startGeneration(config);
     }
