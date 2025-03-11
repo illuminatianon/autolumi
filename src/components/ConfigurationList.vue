@@ -1,22 +1,18 @@
 <script setup>
 import { onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
-import { useGenerationStore } from '@/stores/generation';
+import { useJobStore } from '@/stores/jobs';
 import { storeToRefs } from 'pinia';
-import { useWebSocketStore } from '@/stores/websocket';
 
 const configStore = useConfigStore();
-const generationStore = useGenerationStore();
+const jobStore = useJobStore();
 
 const { configs } = storeToRefs(configStore);
-const { activeConfigs } = storeToRefs(generationStore);
 
 const emit = defineEmits(['new-config', 'edit-config', 'duplicate-config', 'delete-config', 'error']);
 
 onMounted(async () => {
   try {
-    const wsStore = useWebSocketStore();
-    await wsStore.ensureConnection();
     await configStore.fetchConfigs();
   } catch (error) {
     console.error('Error fetching configs:', error);
@@ -24,14 +20,12 @@ onMounted(async () => {
   }
 });
 
-const isConfigActive = (configId) => generationStore.isConfigActive(configId);
-
 const toggleConfig = async (config) => {
   try {
-    if (isConfigActive(config.id)) {
-      await generationStore.stopConfig(config.id);
+    if (configStore.isConfigActive(config.id)) {
+      await jobStore.cancelJobByConfigId(config.id);
     } else {
-      await generationStore.startConfig(config);
+      await jobStore.startGeneration(config);
     }
   } catch (error) {
     console.error('Error toggling config:', error);
@@ -75,8 +69,8 @@ const toggleConfig = async (config) => {
         >
           <template #prepend>
             <v-btn
-              :icon="isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
-              :color="isConfigActive(config.id) ? 'error' : 'success'"
+              :icon="configStore.isConfigActive(config.id) ? 'mdi-stop' : 'mdi-play'"
+              :color="configStore.isConfigActive(config.id) ? 'error' : 'success'"
               variant="text"
               @click="toggleConfig(config)"
             />

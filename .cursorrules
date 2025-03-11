@@ -16,6 +16,7 @@ WebSocket Communication:
   - Message handling pattern:
       wsStore.onMessage('eventName', handler);
       onUnmounted(() => wsStore.offMessage('eventName', handler));
+  - use websocketService.sendRequest for sending requests to the backend
 
 Vue implementation:
  - Always use # syntax for templates, not v-slot

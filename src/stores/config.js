@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useWebSocketStore } from './websocket';
+import { useJobStore } from './jobs';
 
 export const useConfigStore = defineStore('config', {
   state: () => ({
@@ -8,7 +9,6 @@ export const useConfigStore = defineStore('config', {
     samplers: [],
     upscalers: [],
     latentModes: [],
-    schedulers: [],
     loading: false,
     error: null,
   }),
@@ -31,6 +31,11 @@ export const useConfigStore = defineStore('config', {
       ...state.latentModes.map(m => m.name),
       ...state.upscalers.map(u => u.name),
     ],
+
+    isConfigActive: (state) => (configId) => {
+      const jobStore = useJobStore();
+      return jobStore.activeJobs.has(configId);
+    },
   },
 
   actions: {

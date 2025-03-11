@@ -3,20 +3,24 @@ import { computed, onMounted, ref, onUnmounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useGenerationStore } from '@/stores/generation';
 import { useWebSocketStore } from '@/stores/websocket';
+import { useJobStore } from '@/stores/jobs';
 import { storeToRefs } from 'pinia';
 import ConfigurationForm from '@/components/ConfigurationForm.vue';
 import AppFooter from '@/components/AppFooter.vue';
 import ConfigurationList from '@/components/ConfigurationList.vue';
 import GeneratedImagesGrid from '@/components/GeneratedImagesGrid.vue';
+import JobStatus from '@/components/JobStatus.vue';
 import { webSocketService } from '@/services/websocket';
 
 const configStore = useConfigStore();
 const generationStore = useGenerationStore();
 const wsStore = useWebSocketStore();
+const jobStore = useJobStore();
 
 // Use storeToRefs for reactive store properties
 const { configs } = storeToRefs(configStore);
 const { activeConfigs, isProcessing } = storeToRefs(generationStore);
+const { currentJob, serverStatus } = storeToRefs(jobStore);
 
 // Initialize other reactive refs
 const drawer = ref(false);
@@ -26,10 +30,21 @@ const configDialog = ref({
   config: null,
 });
 
-const auto1111Status = ref({
-  color: 'warning',
-  icon: 'mdi-cloud-question',
-  message: 'Checking connection...',
+const auto1111Status = computed(() => {
+  const status = serverStatus.value.auto1111Status;
+  if (!status) {
+    return {
+      color: 'warning',
+      icon: 'mdi-cloud-question',
+      message: 'Checking connection...',
+    };
+  }
+
+  return {
+    color: status.connected ? 'success' : 'error',
+    icon: status.connected ? 'mdi-check-circle' : 'mdi-alert-circle',
+    message: status.connected ? 'Server is connected' : 'Server is not connected',
+  };
 });
 
 const runningConfigs = computed(() => generationStore.runningConfigs?.length || 0);
@@ -195,6 +210,7 @@ const initializeApp = async () => {
   try {
     console.log('Initializing app...');
     await configStore.fetchConfigs();
+    await jobStore.refreshServerStatus();
     await checkAuto1111Status();
 
     // Start polling for server status
@@ -313,11 +329,16 @@ onUnmounted(() => {
             />
           </v-col>
 
-          <!-- Right side - Generated Images -->
+          <!-- Right side - Add JobStatus above GeneratedImagesGrid -->
           <v-col
             cols="12"
             md="8"
           >
+            <job-status
+              v-if="currentJob"
+              :job="currentJob"
+              @cancel="jobStore.cancelJob"
+            />
             <generated-images-grid
               :images="recentImages"
               @image-click="handleImageClick"

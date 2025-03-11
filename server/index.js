@@ -5,7 +5,7 @@ import expressPino from 'express-pino-logger';
 import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { QueueManager } from './lib/QueueManager.js';
+import { JobManager } from './lib/JobManager.js';
 import { Auto1111Client } from './lib/Auto1111Client.js';
 import { ConfigManager } from './lib/ConfigManager.js';
 import { ImageManager } from './lib/ImageManager.js';
@@ -59,7 +59,7 @@ const auto1111Client = new Auto1111Client({
 const dataDir = path.join(__dirname, '..', 'data');
 const configManager = new ConfigManager(dataDir);
 const imageManager = new ImageManager(path.join(dataDir, 'output'));
-const queueManager = new QueueManager(auto1111Client, imageManager, webSocketManager);
+const jobManager = new JobManager(auto1111Client, imageManager, webSocketManager);
 
 // Initialize managers
 await Promise.all([
@@ -79,7 +79,7 @@ app.use('/output', express.static(path.join(dataDir, 'output')));
 app.use((req, res, next) => {
   req.services = {
     auto1111: auto1111Client,
-    queueManager,
+    jobManager,
     configManager,
     imageManager,
   };
@@ -152,29 +152,21 @@ function initializeWebSocketHandlers(webSocketManager, services) {
   });
 
   // Generation related handlers
-  webSocketManager.registerHandler('startConfig', async (config) => {
-    return services.queueManager.addConfig(config);
+  webSocketManager.registerHandler('startGeneration', async (config) => {
+    return services.jobManager.addGenerationJob(config);
   });
 
-  webSocketManager.registerHandler('stopConfig', async ({ configId }) => {
-    return services.queueManager.removeConfig(configId);
+  webSocketManager.registerHandler('queueUpscale', async ({ imagePath, config }) => {
+    return services.jobManager.addUpscaleJob(imagePath, config);
   });
 
-  webSocketManager.registerHandler('queueTxt2img', (config) =>
-    services.queueManager.addJob({ type: 'txt2img', config }),
-  );
+  webSocketManager.registerHandler('cancelJob', async ({ jobId }) => {
+    return services.jobManager.removeJob(jobId);
+  });
 
-  webSocketManager.registerHandler('queueUpscale', ({ imagePath, config }) =>
-    services.queueManager.addJob({ type: 'upscale', imagePath, config }),
-  );
-
-  webSocketManager.registerHandler('cancelJob', ({ jobId }) =>
-    services.queueManager.removeJob(jobId),
-  );
-
-  webSocketManager.registerHandler('getServerStatus', () =>
-    services.auto1111.checkHealth(),
-  );
+  webSocketManager.registerHandler('getServerStatus', async () => {
+    return services.jobManager.getServerStatus();
+  });
 }
 
 // Initialize WebSocket after creating the HTTP server
@@ -188,11 +180,11 @@ app.use('/ws', (req, res) => {
 initializeWebSocketHandlers(webSocketManager, {
   auto1111: auto1111Client,
   configManager,
-  queueManager,
+  jobManager,
 });
 
 // Start server
 server.listen(port, () => {
   logger.info(`Server running on port ${port}`);
-  queueManager.start();
+  jobManager.start();
 });
