@@ -97,28 +97,40 @@ export class QueueManager {
     }
 
     this.activeConfigs.delete(configId);
-    this.configQueue = this.configQueue.filter(id => id !== configId);
 
-    this.broadcastConfigUpdate({
+    // Remove from queue if present
+    const queueIndex = this.configQueue.indexOf(configId);
+    if (queueIndex !== -1) {
+      this.configQueue.splice(queueIndex, 1);
+    }
+
+    // Broadcast the removal to ensure UI updates
+    this.webSocketManager.broadcastConfigUpdate(configId, {
       id: configId,
       status: 'stopped',
+      removed: true,  // Add a flag to indicate complete removal
     });
 
-    this.broadcastQueueUpdate();
+    // Broadcast updated queue status
+    this.broadcastQueueStatus();
   }
 
-  broadcastQueueUpdate() {
+  broadcastQueueStatus() {
     const status = this.getQueueStatus();
     this.webSocketManager.broadcast({
-      type: 'queueUpdate',
+      type: 'queueStatus',
       data: status,
     });
   }
 
   getQueueStatus() {
+    // Filter only actually running or queued jobs
+    const activeJobs = Array.from(this.activeConfigs.values())
+      .filter(config => config.status === 'processing' || config.status === 'queued');
+
     return {
-      activeConfigs: Array.from(this.activeConfigs.entries()).map(([id, config]) => ({
-        id,
+      jobs: activeJobs.map(config => ({
+        id: config.id,
         name: config.config.name,
         status: config.status,
         completedRuns: config.completedRuns,
@@ -183,6 +195,8 @@ export class QueueManager {
   }
 
   broadcastConfigUpdate(configEntry) {
+    if (!configEntry) return;
+
     this.webSocketManager.broadcastConfigUpdate(configEntry.id, {
       id: configEntry.id,
       configId: configEntry.id,
@@ -192,8 +206,11 @@ export class QueueManager {
       lastRun: configEntry.lastRun,
       lastError: configEntry.lastError,
       lastImages: configEntry.lastImages,
-      config: configEntry.config,  // Include the full config
+      config: configEntry.config,
     });
+
+    // Also broadcast updated queue status
+    this.broadcastQueueStatus();
   }
 
   // Keep temporary IDs for upscale tasks

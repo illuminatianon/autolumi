@@ -5,6 +5,12 @@ export const useWebSocketStore = defineStore('websocket', {
   state: () => ({
     connected: false,
     error: null,
+    queueStatus: {
+      jobs: [],
+      configQueueLength: 0,
+      priorityQueueLength: 0,
+      processing: false,
+    },
   }),
 
   actions: {
@@ -42,6 +48,25 @@ export const useWebSocketStore = defineStore('websocket', {
 
     offMessage(type, callback) {
       webSocketService.unsubscribe(type, callback);
+    },
+
+    handleQueueStatus(status) {
+      this.queueStatus = status;
+    },
+
+    handleConfigUpdate(data) {
+      if (data.removed) {
+        // If config was removed, update queue status accordingly
+        this.queueStatus.jobs = this.queueStatus.jobs.filter(job => job.id !== data.id);
+      } else {
+        // Update existing job or add new one
+        const jobIndex = this.queueStatus.jobs.findIndex(job => job.id === data.id);
+        if (jobIndex !== -1) {
+          this.queueStatus.jobs[jobIndex] = { ...this.queueStatus.jobs[jobIndex], ...data };
+        } else if (data.status === 'processing' || data.status === 'queued') {
+          this.queueStatus.jobs.push(data);
+        }
+      }
     },
   },
 });
