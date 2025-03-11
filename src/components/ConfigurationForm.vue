@@ -38,7 +38,7 @@ const defaultForm = ref({
   negative_prompt: '',
   hr_resize_x: 0,
   hr_resize_y: 0,
-  hr_denoising_strength: 0.7,
+  denoising_strength: 0.7,
   hr_second_pass_steps: 20,
   hr_upscaler: '',
   upscale_tile_overlap: 64,
@@ -342,7 +342,7 @@ onMounted(async () => {
         <v-row>
           <v-col cols="12">
             <v-text-field
-              v-model.number="formData.hr_denoising_strength"
+              v-model.number="formData.denoising_strength"
               label="Hires Denoising Strength"
               type="number"
               min="0"

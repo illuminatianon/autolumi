@@ -45,14 +45,15 @@ export class Auto1111Client {
       // Inject hard-coded parameters
       const enhancedParams = {
         ...params,
+        scheduler: 'Automatic',
         enable_hr: true,  // Enable Hires.fix
       };
 
-      logger.info('Sending txt2img request with params:', enhancedParams);
+      logger.info('Sending txt2img request with params: %o', enhancedParams);
       const response = await this.client.post('/sdapi/v1/txt2img', enhancedParams);
       return response.data;
     } catch (error) {
-      logger.error('Auto1111 txt2img error:', {
+      logger.error('Auto1111 txt2img error: %o', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -63,7 +64,7 @@ export class Auto1111Client {
 
   async img2img(params) {
     try {
-      logger.info('Sending img2img request:', {
+      logger.info('Sending img2img request: %o', {
         ...params,
         init_images: params.init_images ? ['<base64 data>'] : undefined,
         script_args: params.script_args,

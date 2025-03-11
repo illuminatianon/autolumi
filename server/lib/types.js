@@ -12,7 +12,7 @@ export const DEFAULT_GENERATION_PARAMS = {
   // Hires.fix defaults
   hr_resize_x: 0,
   hr_resize_y: 0,
-  hr_denoising_strength: 0.7,
+  denoising_strength: 0.7,
   hr_second_pass_steps: 20,
   hr_upscaler: '',
   // Upscale defaults
