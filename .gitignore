@@ -23,13 +23,13 @@ pnpm-debug.log*
 *.code-workspace
 
 # Yarn
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-.yarn/install-state.gz
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/plugins
+!**/.yarn/releases
+!**/.yarn/sdks
+!**/.yarn/versions
+**/.yarn/install-state.gz
 
 # Data directory
 /data/*
