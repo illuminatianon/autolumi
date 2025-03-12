@@ -46,13 +46,19 @@ export const useJobStore = defineStore('jobs', () => {
   function updateServerStatus(status) {
     serverStatus.value = {
       ...serverStatus.value,
-      ...status,
+      connected: status.status === 'ok',
+      auto1111Status: status.auto1111Status || null,
+      processing: status.jobStatus?.processing || false,
+      currentJobId: status.jobStatus?.currentJobId || null,
+      upscaleQueueLength: status.jobStatus?.upscaleQueueLength || 0,
     };
 
     // Update active jobs from status
-    status.jobStatus?.activeJobs?.forEach(job => {
-      activeJobs.value.set(job.id, job);
-    });
+    if (status.jobStatus?.activeJobs) {
+      status.jobStatus.activeJobs.forEach(job => {
+        activeJobs.value.set(job.id, job);
+      });
+    }
   }
 
   // WebSocket handlers
@@ -66,7 +72,8 @@ export const useJobStore = defineStore('jobs', () => {
     });
 
     wsStore.onMessage('serverStatus', (status) => {
-      updateServerStatus(status);
+      console.log('Received server status:', status); // Keep for debugging
+      updateServerStatus(status.data); // Note: status comes wrapped in {type, data}
     });
   }
 

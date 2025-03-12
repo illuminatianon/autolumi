@@ -19,7 +19,6 @@ const jobStore = useJobStore();
 
 // Use storeToRefs for reactive store properties
 const { configs } = storeToRefs(configStore);
-const { activeConfigs, isProcessing } = storeToRefs(generationStore);
 const { currentJob, serverStatus } = storeToRefs(jobStore);
 
 // Initialize other reactive refs
@@ -31,7 +30,7 @@ const configDialog = ref({
 });
 
 const auto1111Status = computed(() => {
-  const status = serverStatus.value.auto1111Status;
+  const status = serverStatus.value?.auto1111Status;
   if (!status) {
     return {
       color: 'warning',
@@ -204,17 +203,11 @@ const recentImages = computed(() => {
   return allImages.value.slice(0, 50);
 });
 
-let statusInterval;
-
 const initializeApp = async () => {
   try {
     console.log('Initializing app...');
     await configStore.fetchConfigs();
-    await jobStore.refreshServerStatus();
-    await checkAuto1111Status();
-
-    // Start polling for server status
-    statusInterval = setInterval(checkAuto1111Status, 5000);
+    await jobStore.refreshServerStatus(); // Keep this initial check
   } catch (error) {
     handleError(error);
   }
@@ -224,11 +217,8 @@ onMounted(() => {
   initializeApp();
 });
 
-onUnmounted(() => {
-  if (statusInterval) {
-    clearInterval(statusInterval);
-  }
-});
+onUnmounted(() => {});
+
 </script>
 
 <template>
