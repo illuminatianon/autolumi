@@ -7,7 +7,8 @@ export class Auto1111Client {
       baseURL: config.baseURL,
       timeout: 300000, // 5 minutes
     });
-    logger.info('Auto1111Client initialized with baseURL:', config.baseURL);
+
+    logger.info('Auto1111Client initialized with baseURL: %s', config.baseURL);
   }
 
   async getSamplers() {
@@ -15,7 +16,7 @@ export class Auto1111Client {
       const response = await this.client.get('/sdapi/v1/samplers');
       return response.data;
     } catch (error) {
-      logger.error('Failed to get samplers:', error);
+      logger.error('Failed to get samplers: %s', error);
       throw error;
     }
   }
@@ -25,7 +26,7 @@ export class Auto1111Client {
       const response = await this.client.get('/sdapi/v1/sd-models');
       return response.data;
     } catch (error) {
-      logger.error('Failed to get models:', error);
+      logger.error('Failed to get models: %s', error);
       throw error;
     }
   }
@@ -95,7 +96,7 @@ export class Auto1111Client {
       const response = await this.client.get('/sdapi/v1/upscalers');
       return response.data;
     } catch (error) {
-      logger.error('Failed to get upscalers:', error);
+      logger.error('Failed to get upscalers: %s', error);
       throw error;
     }
   }
@@ -105,19 +106,27 @@ export class Auto1111Client {
       const response = await this.client.get('/sdapi/v1/latent-upscale-modes');
       return response.data;
     } catch (error) {
-      logger.error('Failed to get latent upscale modes:', error);
+      logger.error('Failed to get latent upscale modes: %s', error);
       throw error;
     }
   }
 
   async checkHealth() {
     try {
-      const response = await this.client.get('/internal/ping');
+      // Get memory information
+      const memoryResponse = await this.client.get('/sdapi/v1/memory');
+
+      // Get progress information
+      const progressResponse = await this.client.get('/sdapi/v1/progress?skip_current_image=false');
+
       return {
         status: 'ok',
-        version: response.data?.version,
+        memory: memoryResponse.data,
+        progress: progressResponse.data,
+        version: 'Auto1111'
       };
     } catch (error) {
+      logger.error('Health check failed: %s', error.message);
       return {
         status: 'error',
         message: 'Auto1111 server not available',

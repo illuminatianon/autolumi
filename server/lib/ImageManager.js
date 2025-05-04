@@ -11,9 +11,9 @@ export class ImageManager {
   async initialize() {
     try {
       await fs.promises.mkdir(this.outputDir, { recursive: true });
-      logger.info('Output directory initialized:', this.outputDir);
+      logger.info('Output directory initialized: %s', this.outputDir);
     } catch (err) {
-      logger.error('Failed to create output directory:', err);
+      logger.error('Failed to create output directory: %s', err);
       throw err;
     }
   }
@@ -27,7 +27,7 @@ export class ImageManager {
       await fs.promises.mkdir(jobDir, { recursive: true });
       return jobDir;
     } catch (error) {
-      logger.error('Failed to create job directory:', error);
+      logger.error('Failed to create job directory: %s', error);
       throw new Error(`Failed to create directory for job ${jobName}: ${error.message}`);
     }
   }
@@ -44,7 +44,7 @@ export class ImageManager {
       if (error.code === 'ENOENT') {
         return 0;
       }
-      logger.error('Failed to read job directory:', error);
+      logger.error('Failed to read job directory: %s', error);
       throw error;
     }
   }
