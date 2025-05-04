@@ -2,48 +2,42 @@ import js from '@eslint/js';
 import pluginVue from 'eslint-plugin-vue';
 
 export default [
+
+  // base config for everything
   {
-    name: 'app/files-to-lint',
     files: ['**/*.{js,mjs,jsx,vue}'],
-  },
-  {
-    name: 'server/files-to-lint',
-    files: ['server/**/*.js'],
-  },
-  {
-    name: 'app/files-to-ignore',
-    ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**'],
-  },
-
-  js.configs.recommended,
-  ...pluginVue.configs['flat/recommended'],
-
-  {
+    ignores: ['**/dist*/**', '**/coverage/**'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+    },
+    plugins: {
+      vue: pluginVue,
+    },
     rules: {
+      ...js.configs.recommended.rules,
+      ...pluginVue.configs['flat/recommended'].rules,
       'vue/multi-word-component-names': 'off',
-      'vue/no-deep-combinator': 'off', // Allow :deep selector
-      'vue/valid-v-deep': ['error', { // Configure :deep usage
-        modifier: true,
-      }],
-    },
-    settings: {
-      'css': {
-        // Allow Vuetify CSS custom properties
-        customProperties: {
-          '--v-theme-': true,
-        },
-      },
+      'vue/no-deep-combinator': 'off',
+      'vue/valid-v-deep': ['error', { modifier: true }],
     },
   },
+
+  // node-specific rules for server files
   {
-    'overrides': [
-      {
-        'files': ['server/**/*.js'],
-        'env': {
-          'node': true,
-        },
+    files: ['apps/server/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        process: 'readonly',
       },
-    ],
+    },
+    env: {
+      node: true,
+    },
   },
 
 ];

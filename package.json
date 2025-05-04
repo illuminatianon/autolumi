@@ -2,15 +2,13 @@
   "name": "autolumi",
   "private": true,
   "workspaces": [
-    "app",
-    "server"
+    "apps/*"
   ],
   "scripts": {
-    "dev": "yarn workspace autolumi-app dev",
-    "dev:app": "yarn workspace autolumi-app dev",
-    "dev:server": "yarn workspace autolumi-server dev",
-    "dev:all": "concurrently --names \"app,server\" --prefix-colors \"blue,green\" \"yarn dev:app\" \"yarn dev:server\"",
-    "build": "yarn workspace autolumi-app build",
+    "dev": "concurrently --names \"app,server\" --prefix-colors \"blue,green\" \"yarn dev:app\" \"yarn dev:server\"",
+    "dev:app": "yarn workspace client dev",
+    "dev:server": "yarn workspace client dev",
+    "build": "yarn workspace client build",
     "lint": "eslint . --fix"
   },
   "devDependencies": {
