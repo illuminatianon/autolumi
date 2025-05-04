@@ -31,6 +31,9 @@ pnpm-debug.log*
 !**/.yarn/versions
 **/.yarn/install-state.gz
 
+# Eslint
+**/.eslintrc-auto-import.json
+
 # Data directory
 /data/*
 !/data/.gitkeep
