@@ -7,6 +7,9 @@
   ],
   "scripts": {
     "dev": "yarn workspace autolumi-app dev",
+    "dev:app": "yarn workspace autolumi-app dev",
+    "dev:server": "yarn workspace autolumi-server dev",
+    "dev:all": "concurrently --names \"app,server\" --prefix-colors \"blue,green\" \"yarn dev:app\" \"yarn dev:server\"",
     "build": "yarn workspace autolumi-app build",
     "lint": "eslint . --fix"
   },
